@@ -34,3 +34,12 @@
 - Reduced `BrainServer` to validation, connection lifecycle, and dispatch duties.
 - Added router and handler unit tests.
 - Preserved protocol and WebSocket behavior.
+
+## B1.5.1
+
+- Added validated shared `SpeechPayload` messages.
+- Added the Brain `SpeechService` for broadcasting speech to connected nodes.
+- Added a Brain SPEECH handler that validates and forwards manual commands.
+- Added Node message routing and a SPEECH logging handler.
+- Updated the manual `send_speech` command to use the shared payload model.
+- Added speech pipeline unit tests.

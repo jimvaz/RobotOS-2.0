@@ -7,8 +7,7 @@ import asyncio
 from loguru import logger
 from websockets.asyncio.client import connect
 
-from shared.models import Message
-from shared.protocol import MessageType
+from shared.speech import SpeechPayload
 
 
 async def main() -> None:
@@ -18,10 +17,7 @@ async def main() -> None:
         print("Δεν δόθηκε κείμενο.")
         return
 
-    message = Message(
-        type=MessageType.SPEECH,
-        payload={"text": text},
-    )
+    message = SpeechPayload(text=text).to_message()
 
     async with connect("ws://127.0.0.1:8765") as websocket:
         await websocket.send(message.to_json())

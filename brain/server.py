@@ -11,8 +11,9 @@ from websockets.exceptions import ConnectionClosed
 
 from brain.config import CONFIG
 from brain.connection_manager import ConnectionManager
-from brain.handlers import handle_heartbeat, handle_hello
+from brain.handlers import create_speech_handler, handle_heartbeat, handle_hello
 from brain.router import MessageRouter
+from brain.services import SpeechService
 from shared.models import Message
 from shared.protocol import MessageType
 
@@ -22,15 +23,16 @@ class BrainServer:
 
     def __init__(self, router: MessageRouter | None = None) -> None:
         self.connections = ConnectionManager()
+        self.speech = SpeechService(self.connections)
         self.router = router or self._create_default_router()
 
-    @staticmethod
-    def _create_default_router() -> MessageRouter:
+    def _create_default_router(self) -> MessageRouter:
         """Build the standard Brain protocol routing table."""
 
         router = MessageRouter()
         router.register(MessageType.HELLO, handle_hello)
         router.register(MessageType.HEARTBEAT, handle_heartbeat)
+        router.register(MessageType.SPEECH, create_speech_handler(self.speech))
         return router
 
     async def handle_client(self, websocket: ServerConnection) -> None:

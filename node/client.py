@@ -11,8 +11,8 @@ from websockets.asyncio.client import ClientConnection, connect
 from websockets.exceptions import ConnectionClosed
 
 from node.config import CONFIG
-from node.tts import PiperTTS
-from node.tts.piper import PiperError
+from node.handlers import handle_speech
+from node.router import NodeMessageRouter
 from shared.models import Message
 from shared.protocol import MessageType
 from shared.version import PROTOCOL_VERSION, ROBOTOS_VERSION
@@ -24,6 +24,8 @@ class NodeClient:
     def __init__(self) -> None:
         self.running = True
         self.websocket: ClientConnection | None = None
+        self.router = NodeMessageRouter()
+        self.router.register(MessageType.SPEECH, handle_speech)
 
     async def send_message(self, message: Message) -> None:
         """Send a validated RobotOS protocol message."""
@@ -128,11 +130,7 @@ class NodeClient:
                 )
                 continue
 
-            logger.info(
-                "Message received from Brain: type={}, payload={}",
-                message.type,
-                message.payload,
-            )
+            await self.router.dispatch(message)
 
     async def run_connection(self) -> None:
         """Run one connection session."""
