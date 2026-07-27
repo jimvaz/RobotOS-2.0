@@ -8,3 +8,7 @@
 - Added common message and event enumerations.
 - Added shared Loguru configuration.
 - Added protocol and model unit tests.
+
+
+## B1.4.1
+- Added initial brain/connection_manager.py scaffold.
