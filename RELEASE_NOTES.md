@@ -1,18 +1,24 @@
-# RobotOS 2.0 — B1.4.3
+# RobotOS 2.0 — B1.4.4
 
 ## Summary
 
-B1.4.3 completes the first functional Brain connection-management refactor.
-The `BrainServer` no longer owns or mutates a raw client set directly; all
-connection registration and removal now pass through `ConnectionManager`.
+B1.4.4 introduces the Brain message-routing layer. Validated messages are now
+forwarded by `BrainServer` to a registry-based `MessageRouter`, while HELLO and
+HEARTBEAT behavior lives in dedicated handlers.
 
 ## Changes
 
-- Integrated `ConnectionManager` into `BrainServer`.
-- Replaced direct `self.clients` set mutations with connection lifecycle calls.
-- Added immutable connection snapshots, membership checks, length, and safe iteration.
-- Added unit coverage for registration, removal, idempotent disconnect, and snapshot iteration.
-- Preserved existing HELLO, HEARTBEAT, validation, and WebSocket behavior.
+- Implemented an asynchronous handler registry in `brain/router.py`.
+- Added `brain/handlers/hello.py` and `brain/handlers/heartbeat.py`.
+- Added duplicate-registration protection and safe handler removal.
+- Refactored `BrainServer` to build the default routing table and dispatch messages.
+- Added unit tests for routing, missing handlers, duplicate registration, HELLO,
+  and HEARTBEAT responses.
+
+## Compatibility
+
+No wire-protocol or configuration changes are required. Existing HELLO,
+HEARTBEAT, validation-error, connection, and lifecycle behavior is preserved.
 
 ## Validation
 
@@ -23,7 +29,7 @@ pytest
 python -m compileall brain node shared tests
 ```
 
-## Upgrade notes
+## Next milestone
 
-No configuration or protocol changes are required. This release is an internal
-architecture refactor and is intended to be behavior-compatible with B1.4.2.
+B1.5 will connect the SPEECH event to the Node Piper TTS pipeline for the first
+end-to-end spoken response.

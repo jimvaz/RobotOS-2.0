@@ -26,3 +26,11 @@
 - Added immutable connection snapshots and collection helpers.
 - Added connection-manager unit tests.
 - Preserved existing protocol behavior.
+
+## B1.4.4
+
+- Added a registry-based asynchronous `MessageRouter`.
+- Added dedicated HELLO and HEARTBEAT handlers.
+- Reduced `BrainServer` to validation, connection lifecycle, and dispatch duties.
+- Added router and handler unit tests.
+- Preserved protocol and WebSocket behavior.

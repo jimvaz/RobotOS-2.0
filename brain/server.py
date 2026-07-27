@@ -11,39 +11,46 @@ from websockets.exceptions import ConnectionClosed
 
 from brain.config import CONFIG
 from brain.connection_manager import ConnectionManager
+from brain.handlers import handle_heartbeat, handle_hello
+from brain.router import MessageRouter
 from shared.models import Message
 from shared.protocol import MessageType
-from shared.version import BRAIN_NAME, PROTOCOL_VERSION, ROBOTOS_VERSION
 
 
 class BrainServer:
-    """Accepts and handles connections from RobotOS nodes."""
+    """Accept connections and delegate validated messages to the router."""
 
-    def __init__(self) -> None:
+    def __init__(self, router: MessageRouter | None = None) -> None:
         self.connections = ConnectionManager()
+        self.router = router or self._create_default_router()
+
+    @staticmethod
+    def _create_default_router() -> MessageRouter:
+        """Build the standard Brain protocol routing table."""
+
+        router = MessageRouter()
+        router.register(MessageType.HELLO, handle_hello)
+        router.register(MessageType.HEARTBEAT, handle_heartbeat)
+        return router
 
     async def handle_client(self, websocket: ServerConnection) -> None:
         """Handle one connected RobotOS node."""
 
         remote_address = websocket.remote_address
         await self.connections.connect(websocket)
-
         logger.info("Node connected: {}", remote_address)
 
         try:
             async for raw_message in websocket:
                 await self.handle_message(websocket, raw_message)
-
         except ConnectionClosed as exc:
             logger.warning(
                 "Node connection closed: code={}, reason={}",
                 exc.code,
                 exc.reason or "none",
             )
-
         except Exception:
             logger.exception("Unexpected client error")
-
         finally:
             await self.connections.disconnect(websocket)
             logger.info("Node disconnected: {}", remote_address)
@@ -53,14 +60,12 @@ class BrainServer:
         websocket: ServerConnection,
         raw_message: str | bytes,
     ) -> None:
-        """Validate and route an incoming protocol message."""
+        """Validate an incoming protocol message and dispatch it."""
 
         try:
             message = Message.from_json(raw_message)
-
         except ValidationError as exc:
             logger.warning("Invalid protocol message: {}", exc)
-
             error_message = Message(
                 type=MessageType.ERROR,
                 payload={
@@ -68,82 +73,17 @@ class BrainServer:
                     "message": "The received message is invalid.",
                 },
             )
-
             await websocket.send(error_message.to_json())
             return
 
-        logger.info(
-            "Message received: type={}, id={}",
-            message.type,
-            message.id,
-        )
-
-        if message.type == MessageType.HELLO:
-            await self.handle_hello(websocket, message)
-            return
-
-        if message.type == MessageType.HEARTBEAT:
-            await self.handle_heartbeat(websocket, message)
-            return
-
-        logger.warning("No handler exists yet for message type: {}", message.type)
-
-    async def handle_hello(
-        self,
-        websocket: ServerConnection,
-        message: Message,
-    ) -> None:
-        """Respond to the initial node handshake."""
-
-        node_name = message.payload.get("node_name", "unknown-node")
-
-        logger.info("HELLO received from {}", node_name)
-
-        response = Message(
-            type=MessageType.HELLO,
-            payload={
-                "status": "accepted",
-                "brain_name": BRAIN_NAME,
-                "robotos_version": ROBOTOS_VERSION,
-                "protocol_version": PROTOCOL_VERSION,
-            },
-        )
-
-        await websocket.send(response.to_json())
-        logger.info("HELLO response sent to {}", node_name)
-
-    async def handle_heartbeat(
-        self,
-        websocket: ServerConnection,
-        message: Message,
-    ) -> None:
-        """Acknowledge a node heartbeat."""
-
-        response = Message(
-            type=MessageType.HEARTBEAT,
-            payload={
-                "status": "alive",
-                "reply_to": message.id,
-            },
-        )
-
-        await websocket.send(response.to_json())
-        logger.debug("Heartbeat acknowledged")
+        logger.info("Message received: type={}, id={}", message.type, message.id)
+        await self.router.dispatch(websocket, message)
 
     async def start(self) -> None:
         """Start the WebSocket server and wait indefinitely."""
 
-        logger.info(
-            "Starting WebSocket server on ws://{}:{}",
-            CONFIG.host,
-            CONFIG.port,
-        )
-
-        async with serve(
-            self.handle_client,
-            CONFIG.host,
-            CONFIG.port,
-        ):
+        logger.info("Starting WebSocket server on ws://{}:{}", CONFIG.host, CONFIG.port)
+        async with serve(self.handle_client, CONFIG.host, CONFIG.port):
             logger.info("Waiting for RobotOS nodes...")
             await asyncio.Future()
 
