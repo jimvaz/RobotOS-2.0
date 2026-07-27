@@ -1,0 +1,17 @@
+[project]
+name = "robotos"
+version = "2.0.0a1"
+description = "RobotOS 2.0 shared communication core"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.7,<3.0",
+    "loguru>=0.7,<1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0,<9.0"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-q"
