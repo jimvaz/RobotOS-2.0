@@ -12,3 +12,8 @@
 
 ## B1.4.1
 - Added initial brain/connection_manager.py scaffold.
+
+
+## B1.4.2
+- Added RELEASE_NOTES.md
+- Added ConnectionManager scaffold.
