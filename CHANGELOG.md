@@ -17,3 +17,12 @@
 ## B1.4.2
 - Added RELEASE_NOTES.md
 - Added ConnectionManager scaffold.
+
+
+## B1.4.3
+
+- Integrated `ConnectionManager` into `BrainServer`.
+- Removed direct client-set ownership from the server.
+- Added immutable connection snapshots and collection helpers.
+- Added connection-manager unit tests.
+- Preserved existing protocol behavior.

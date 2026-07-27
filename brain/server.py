@@ -10,6 +10,7 @@ from websockets.asyncio.server import ServerConnection, serve
 from websockets.exceptions import ConnectionClosed
 
 from brain.config import CONFIG
+from brain.connection_manager import ConnectionManager
 from shared.models import Message
 from shared.protocol import MessageType
 from shared.version import BRAIN_NAME, PROTOCOL_VERSION, ROBOTOS_VERSION
@@ -19,13 +20,13 @@ class BrainServer:
     """Accepts and handles connections from RobotOS nodes."""
 
     def __init__(self) -> None:
-        self.clients: set[ServerConnection] = set()
+        self.connections = ConnectionManager()
 
     async def handle_client(self, websocket: ServerConnection) -> None:
         """Handle one connected RobotOS node."""
 
         remote_address = websocket.remote_address
-        self.clients.add(websocket)
+        await self.connections.connect(websocket)
 
         logger.info("Node connected: {}", remote_address)
 
@@ -44,7 +45,7 @@ class BrainServer:
             logger.exception("Unexpected client error")
 
         finally:
-            self.clients.discard(websocket)
+            await self.connections.disconnect(websocket)
             logger.info("Node disconnected: {}", remote_address)
 
     async def handle_message(
