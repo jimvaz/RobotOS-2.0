@@ -53,3 +53,16 @@
 - Added resilient error handling so one failed synthesis does not stop later speech.
 - Added unit tests for handler integration, ordering, failure recovery, blank input,
   and Piper configuration validation.
+
+## B1.6
+
+- Added `AUDIO_START`, `AUDIO_CHUNK`, `AUDIO_END`, and `TRANSCRIPT` protocol messages.
+- Added validated audio payload models and base64 PCM chunk transport.
+- Added connection-scoped, ordered, size-limited Brain audio buffering.
+- Added lazy faster-whisper transcription configured for Whisper Turbo on CUDA.
+- Added Raspberry Pi microphone capture with RMS VAD, pre-buffer, and silence stop.
+- Added Node audio streaming and transcript handling.
+- Added opt-in continuous microphone capture through `ROBOTOS_MICROPHONE_ENABLED`.
+- Added Brain- and Node-specific dependency files.
+- Added six end-to-end unit tests for audio payloads, ordering, streaming, handlers,
+  transcript delivery, and protocol errors.

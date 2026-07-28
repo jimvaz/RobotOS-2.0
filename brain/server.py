@@ -11,9 +11,14 @@ from websockets.exceptions import ConnectionClosed
 
 from brain.config import CONFIG
 from brain.connection_manager import ConnectionManager
-from brain.handlers import create_speech_handler, handle_heartbeat, handle_hello
+from brain.handlers import (
+    create_audio_handlers,
+    create_speech_handler,
+    handle_heartbeat,
+    handle_hello,
+)
 from brain.router import MessageRouter
-from brain.services import SpeechService
+from brain.services import AudioBufferService, SpeechService, WhisperService
 from shared.models import Message
 from shared.protocol import MessageType
 
@@ -24,6 +29,14 @@ class BrainServer:
     def __init__(self, router: MessageRouter | None = None) -> None:
         self.connections = ConnectionManager()
         self.speech = SpeechService(self.connections)
+        self.audio_buffers = AudioBufferService(
+            max_audio_bytes=CONFIG.max_audio_seconds * 16000 * 2
+        )
+        self.whisper = WhisperService(
+            model_name=CONFIG.whisper_model,
+            device=CONFIG.whisper_device,
+            compute_type=CONFIG.whisper_compute_type,
+        )
         self.router = router or self._create_default_router()
 
     def _create_default_router(self) -> MessageRouter:
@@ -33,6 +46,13 @@ class BrainServer:
         router.register(MessageType.HELLO, handle_hello)
         router.register(MessageType.HEARTBEAT, handle_heartbeat)
         router.register(MessageType.SPEECH, create_speech_handler(self.speech))
+        audio_start, audio_chunk, audio_end = create_audio_handlers(
+            self.audio_buffers,
+            self.whisper,
+        )
+        router.register(MessageType.AUDIO_START, audio_start)
+        router.register(MessageType.AUDIO_CHUNK, audio_chunk)
+        router.register(MessageType.AUDIO_END, audio_end)
         return router
 
     async def handle_client(self, websocket: ServerConnection) -> None:
@@ -54,6 +74,7 @@ class BrainServer:
         except Exception:
             logger.exception("Unexpected client error")
         finally:
+            self.audio_buffers.discard_connection(websocket)
             await self.connections.disconnect(websocket)
             logger.info("Node disconnected: {}", remote_address)
 

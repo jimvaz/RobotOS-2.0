@@ -10,8 +10,9 @@ from pydantic import ValidationError
 from websockets.asyncio.client import ClientConnection, connect
 from websockets.exceptions import ConnectionClosed
 
+from node.audio import AudioRecorder, AudioRecorderError, AudioStreamer, RecorderConfig
 from node.config import CONFIG
-from node.handlers import create_speech_handler
+from node.handlers import create_speech_handler, handle_transcript
 from node.router import NodeMessageRouter
 from node.tts import PiperTTS, SpeechQueue
 from shared.models import Message
@@ -32,10 +33,21 @@ class NodeClient:
             audio_player=CONFIG.audio_player,
         )
         self.speech_queue = SpeechQueue(self.piper)
+        self.audio_recorder = AudioRecorder(
+            RecorderConfig(
+                sample_rate=CONFIG.microphone_sample_rate,
+                speech_threshold=CONFIG.microphone_threshold,
+                silence_ms=CONFIG.microphone_silence_ms,
+                pre_buffer_ms=CONFIG.microphone_pre_buffer_ms,
+                max_utterance_seconds=CONFIG.microphone_max_seconds,
+            )
+        )
+        self.audio_streamer = AudioStreamer(self.send_message)
         self.router.register(
             MessageType.SPEECH,
             create_speech_handler(self.speech_queue),
         )
+        self.router.register(MessageType.TRANSCRIPT, handle_transcript)
 
     async def send_message(self, message: Message) -> None:
         """Send a validated RobotOS protocol message."""
@@ -142,6 +154,33 @@ class NodeClient:
 
             await self.router.dispatch(message)
 
+
+    async def microphone_loop(self) -> None:
+        """Capture utterances and stream them to the Brain while connected."""
+
+        logger.info("Microphone listener enabled")
+        while self.running and self.websocket is not None:
+            try:
+                pcm = await self.audio_recorder.record_utterance()
+                if not pcm:
+                    await asyncio.sleep(CONFIG.microphone_retry_delay)
+                    continue
+                session_id = await self.audio_streamer.stream(
+                    pcm,
+                    sample_rate=CONFIG.microphone_sample_rate,
+                    language=CONFIG.language,
+                )
+                logger.info(
+                    "Audio utterance sent: session={}, bytes={}",
+                    session_id,
+                    len(pcm),
+                )
+            except AudioRecorderError as exc:
+                logger.error("Microphone capture failed: {}", exc)
+                await asyncio.sleep(CONFIG.microphone_retry_delay)
+            except (ConnectionClosed, RuntimeError):
+                return
+
     async def run_connection(self) -> None:
         """Run one connection session."""
 
@@ -168,10 +207,18 @@ class NodeClient:
                 self.receive_loop(),
                 name="node-receiver",
             )
+            tasks = {heartbeat_task, receive_task}
+            microphone_task: asyncio.Task[None] | None = None
+            if CONFIG.microphone_enabled:
+                microphone_task = asyncio.create_task(
+                    self.microphone_loop(),
+                    name="node-microphone",
+                )
+                tasks.add(microphone_task)
 
             try:
                 done, pending = await asyncio.wait(
-                    {heartbeat_task, receive_task},
+                    tasks,
                     return_when=asyncio.FIRST_EXCEPTION,
                 )
 
@@ -181,14 +228,12 @@ class NodeClient:
                         raise exception
 
             finally:
-                heartbeat_task.cancel()
-                receive_task.cancel()
+                for task in tasks:
+                    task.cancel()
 
-                with suppress(asyncio.CancelledError):
-                    await heartbeat_task
-
-                with suppress(asyncio.CancelledError):
-                    await receive_task
+                for task in tasks:
+                    with suppress(asyncio.CancelledError):
+                        await task
 
                 self.websocket = None
 
