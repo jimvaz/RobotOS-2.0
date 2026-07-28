@@ -1,5 +1,5 @@
 """RobotOS Node message handlers."""
 
-from .speech import handle_speech
+from .speech import NodeSpeechHandler, create_speech_handler
 
-__all__ = ["handle_speech"]
+__all__ = ["NodeSpeechHandler", "create_speech_handler"]

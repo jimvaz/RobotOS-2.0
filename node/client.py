@@ -11,8 +11,9 @@ from websockets.asyncio.client import ClientConnection, connect
 from websockets.exceptions import ConnectionClosed
 
 from node.config import CONFIG
-from node.handlers import handle_speech
+from node.handlers import create_speech_handler
 from node.router import NodeMessageRouter
+from node.tts import PiperTTS, SpeechQueue
 from shared.models import Message
 from shared.protocol import MessageType
 from shared.version import PROTOCOL_VERSION, ROBOTOS_VERSION
@@ -25,7 +26,16 @@ class NodeClient:
         self.running = True
         self.websocket: ClientConnection | None = None
         self.router = NodeMessageRouter()
-        self.router.register(MessageType.SPEECH, handle_speech)
+        self.piper = PiperTTS(
+            executable=CONFIG.piper_executable,
+            model_path=CONFIG.piper_model,
+            audio_player=CONFIG.audio_player,
+        )
+        self.speech_queue = SpeechQueue(self.piper)
+        self.router.register(
+            MessageType.SPEECH,
+            create_speech_handler(self.speech_queue),
+        )
 
     async def send_message(self, message: Message) -> None:
         """Send a validated RobotOS protocol message."""
@@ -185,6 +195,8 @@ class NodeClient:
     async def start(self) -> None:
         """Connect continuously and automatically reconnect after failure."""
 
+        self.speech_queue.start()
+
         while self.running:
             try:
                 await self.run_connection()
@@ -218,6 +230,12 @@ class NodeClient:
                 )
                 await asyncio.sleep(CONFIG.reconnect_delay)
 
+    async def shutdown(self) -> None:
+        """Stop network activity and finish queued speech."""
+
+        self.running = False
+        await self.speech_queue.stop(drain=True)
+
     def stop(self) -> None:
         """Request a graceful Node shutdown."""
 
@@ -226,8 +244,14 @@ class NodeClient:
     def run(self) -> None:
         """Start the Node client."""
 
+        async def runner() -> None:
+            try:
+                await self.start()
+            finally:
+                await self.shutdown()
+
         try:
-            asyncio.run(self.start())
+            asyncio.run(runner())
         except KeyboardInterrupt:
             self.stop()
             logger.info("RobotOS Node stopped by user")

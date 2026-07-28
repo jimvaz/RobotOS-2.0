@@ -43,3 +43,13 @@
 - Added Node message routing and a SPEECH logging handler.
 - Updated the manual `send_speech` command to use the shared payload model.
 - Added speech pipeline unit tests.
+
+## B1.5.2
+
+- Connected the Node SPEECH handler to the Piper text-to-speech engine.
+- Added a background speech queue so WebSocket message reception remains responsive.
+- Guaranteed sequential playback and prevented overlapping speech requests.
+- Added graceful Piper, voice-model, and audio-player validation.
+- Added resilient error handling so one failed synthesis does not stop later speech.
+- Added unit tests for handler integration, ordering, failure recovery, blank input,
+  and Piper configuration validation.

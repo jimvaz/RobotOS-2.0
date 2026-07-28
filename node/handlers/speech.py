@@ -2,23 +2,28 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
+
 from loguru import logger
 from pydantic import ValidationError
 
+from node.tts import SpeechQueue
 from shared.models import Message
 from shared.speech import SpeechPayload
 
+NodeSpeechHandler = Callable[[Message], Awaitable[None]]
 
-async def handle_speech(message: Message) -> None:
-    """Validate and log speech text received from the Brain.
 
-    Piper playback is intentionally added in B1.5.2.
-    """
+def create_speech_handler(speech_queue: SpeechQueue) -> NodeSpeechHandler:
+    """Create a SPEECH handler backed by the Node speech queue."""
 
-    try:
-        payload = SpeechPayload.from_message(message)
-    except (ValidationError, ValueError) as exc:
-        logger.warning("Invalid SPEECH message received from Brain: {}", exc)
-        return
+    async def handle_speech(message: Message) -> None:
+        try:
+            payload = SpeechPayload.from_message(message)
+        except (ValidationError, ValueError) as exc:
+            logger.warning("Invalid SPEECH message received from Brain: {}", exc)
+            return
 
-    logger.info("[SPEECH] {}", payload.text)
+        await speech_queue.enqueue(payload.text)
+
+    return handle_speech

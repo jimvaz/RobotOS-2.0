@@ -133,3 +133,89 @@ def test_node_router_dispatches_speech_message() -> None:
 
     assert handled is True
     assert received == ["Καλησπέρα"]
+
+class FakeSpeechEngine:
+    def __init__(self, *, fail_text: str | None = None) -> None:
+        self.spoken: list[str] = []
+        self.fail_text = fail_text
+
+    async def speak(self, text: str) -> None:
+        self.spoken.append(text)
+        if text == self.fail_text:
+            raise RuntimeError("synthetic TTS failure")
+
+
+def test_node_speech_handler_queues_valid_text() -> None:
+    from node.handlers import create_speech_handler
+    from node.tts import SpeechQueue
+
+    async def scenario() -> list[str]:
+        engine = FakeSpeechEngine()
+        queue = SpeechQueue(engine)
+        handler = create_speech_handler(queue)
+
+        await handler(SpeechPayload(text="  Καλησπέρα  ").to_message())
+        await queue.join()
+        await queue.stop()
+        return engine.spoken
+
+    assert asyncio.run(scenario()) == ["Καλησπέρα"]
+
+
+def test_speech_queue_preserves_message_order() -> None:
+    from node.tts import SpeechQueue
+
+    async def scenario() -> list[str]:
+        engine = FakeSpeechEngine()
+        queue = SpeechQueue(engine)
+
+        await queue.enqueue("πρώτο")
+        await queue.enqueue("δεύτερο")
+        await queue.enqueue("τρίτο")
+        await queue.join()
+        await queue.stop()
+        return engine.spoken
+
+    assert asyncio.run(scenario()) == ["πρώτο", "δεύτερο", "τρίτο"]
+
+
+def test_speech_queue_continues_after_engine_failure() -> None:
+    from node.tts import SpeechQueue
+
+    async def scenario() -> list[str]:
+        engine = FakeSpeechEngine(fail_text="αποτυχία")
+        queue = SpeechQueue(engine)
+
+        await queue.enqueue("αποτυχία")
+        await queue.enqueue("συνέχεια")
+        await queue.join()
+        await queue.stop()
+        return engine.spoken
+
+    assert asyncio.run(scenario()) == ["αποτυχία", "συνέχεια"]
+
+
+def test_speech_queue_ignores_blank_text() -> None:
+    from node.tts import SpeechQueue
+
+    async def scenario() -> tuple[list[str], int]:
+        engine = FakeSpeechEngine()
+        queue = SpeechQueue(engine)
+        await queue.enqueue("   ")
+        pending = queue.pending
+        await queue.stop()
+        return engine.spoken, pending
+
+    spoken, pending = asyncio.run(scenario())
+    assert spoken == []
+    assert pending == 0
+
+
+def test_piper_validation_rejects_missing_model(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    from node.tts import PiperError, PiperTTS
+
+    monkeypatch.setattr(PiperTTS, "_command_exists", staticmethod(lambda command: True))
+    piper = PiperTTS("piper", tmp_path / "missing.onnx", "aplay")
+
+    with pytest.raises(PiperError, match="μοντέλο Piper"):
+        piper.validate()
