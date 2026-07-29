@@ -56,6 +56,7 @@ class LLMService:
             {
                 "model": self.model,
                 "stream": False,
+                "think": False,
                 "messages": [
                     {"role": "system", "content": self.system_prompt},
                     {"role": "user", "content": clean_prompt},
