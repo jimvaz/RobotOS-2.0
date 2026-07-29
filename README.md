@@ -1,31 +1,27 @@
 # RobotOS 2.0
 
 RobotOS 2.0 separates the Windows **Brain**, Raspberry Pi **Node**, and Arduino
-hardware layer. Release **B1.6** adds the first end-to-end microphone and Whisper
-transcription path while preserving the verified Piper speech pipeline.
-
-## B1.6 audio flow
+hardware layer. Release **B1.7** completes the first full Greek voice loop:
 
 ```text
-Raspberry Pi USB microphone
+Raspberry Pi microphone
         ↓
-AudioRecorder + RMS VAD
+Whisper Turbo on Windows
         ↓
-AUDIO_START / AUDIO_CHUNK / AUDIO_END
+Greek transcript
         ↓
-WebSocket
+Ollama / Qwen (robot-greek)
         ↓
-Brain AudioBufferService
+SPEECH event
         ↓
-Whisper Turbo (faster-whisper)
+Piper on Raspberry Pi
         ↓
-TRANSCRIPT
-        ↓
-Node log
+Robot voice
 ```
 
-Audio is transported as ordered base64-encoded PCM chunks inside validated
-RobotOS protocol messages. B1.6 accepts mono, signed 16-bit PCM at 16 kHz.
+The B1.6 microphone, WebSocket, transcription, speech queue, and Piper paths are
+preserved. B1.7 adds a lazy, non-blocking Ollama service and connects every
+non-empty transcript to a generated spoken response.
 
 ## Core development setup
 
@@ -34,68 +30,76 @@ cd C:\RobotOS-2.0
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-pip install -r requirements.txt
+pip install -r requirements-brain.txt
 pytest
 python -m compileall brain node shared tests
 ```
 
 ## Windows Brain setup
 
-Install Brain-only dependencies inside the Windows virtual environment:
+Ollama must be running and the configured model must exist:
 
 ```powershell
-pip install -r requirements-brain.txt
+ollama list
+ollama run robot-greek
 ```
 
-Recommended settings for an RTX 3060:
+Exit the interactive Ollama prompt after confirming the model works, then start
+the Brain:
 
 ```powershell
+cd C:\RobotOS-2.0
+.\.venv\Scripts\Activate.ps1
+
 $env:ROBOTOS_WHISPER_MODEL="turbo"
 $env:ROBOTOS_WHISPER_DEVICE="cuda"
 $env:ROBOTOS_WHISPER_COMPUTE_TYPE="float16"
+$env:ROBOTOS_OLLAMA_MODEL="robot-greek"
+$env:ROBOTOS_OLLAMA_URL="http://127.0.0.1:11434"
+
 python -m brain.main
 ```
 
-The Whisper model is loaded lazily when the first utterance arrives.
+Optional settings:
+
+```powershell
+$env:ROBOTOS_OLLAMA_TIMEOUT_SECONDS="120"
+$env:ROBOTOS_SYSTEM_PROMPT="Απαντάς μόνο στα ελληνικά, σύντομα και ευγενικά."
+```
+
+The Brain uses Ollama's local `/api/chat` endpoint. The HTTP request runs in a
+worker thread so Whisper/Ollama processing does not block WebSocket heartbeats.
 
 ## Raspberry Pi Node setup
-
-Install Node-only dependencies inside the Pi virtual environment:
 
 ```bash
 cd ~/RobotOS-2.0
 source node_runtime/.venv/bin/activate
 pip install -r requirements-node.txt
-```
 
-Configure the Brain and Piper paths:
-
-```bash
 export ROBOTOS_BRAIN_HOST=192.168.1.26
 export ROBOTOS_BRAIN_PORT=8765
-export PIPER_EXECUTABLE=/home/pi/RobotOS-2.0/node_runtime/.venv/bin/piper
-export PIPER_MODEL=/home/pi/RobotOS-2.0/models/piper/el_GR-rapunzelina-medium.onnx
-export AUDIO_PLAYER=aplay
-```
-
-Enable microphone capture explicitly:
-
-```bash
 export ROBOTOS_MICROPHONE_ENABLED=1
+
+export PIPER_EXECUTABLE="$HOME/RobotOS-2.0/node_runtime/.venv/bin/piper"
+export PIPER_MODEL="$HOME/RobotOS-2.0/models/piper/el_GR-rapunzelina-medium.onnx"
+export AUDIO_PLAYER=aplay
+
 python -m node.main
 ```
 
-The microphone listener waits for speech, keeps a short pre-buffer, stops after
-silence, and sends the completed utterance to the Brain. The transcript appears
-in the Node log as:
+After the handshake, speak near the Raspberry Pi microphone. Expected Brain
+logs include:
 
 ```text
-[TRANSCRIPT] Καλημέρα RobotOS
+Transcript: 'Πώς σε λένε;'
+LLM response generated: model=robot-greek, text='Είμαι το RobotOS.'
+Speech dispatched: recipients=1
 ```
 
-## Microphone tuning
+The Node should then queue and play the answer through Piper.
 
-The defaults are conservative and can be overridden:
+## Microphone tuning
 
 ```bash
 export ROBOTOS_MIC_THRESHOLD=0.015
@@ -104,15 +108,16 @@ export ROBOTOS_MIC_PRE_BUFFER_MS=300
 export ROBOTOS_MIC_MAX_SECONDS=15
 ```
 
-Raise `ROBOTOS_MIC_THRESHOLD` if ambient noise triggers recording. Lower it if
-quiet speech is not detected.
+Raise the threshold if ambient noise triggers recording. Lower it if quiet
+speech is not detected.
 
-## Existing Piper test
+## Failure behaviour
 
-With Brain and Node running, speech can still be tested from Windows:
+- Empty Whisper transcripts are ignored and are not sent to Ollama.
+- If Ollama is offline, the Brain sends an `llm_failed` protocol error and keeps
+  the WebSocket connection alive.
+- If Whisper fails, the existing `whisper_failed` error path remains active.
+- Conversation history is intentionally not included in B1.7; every utterance is
+  currently an independent request.
 
-```powershell
-python -m brain.send_speech
-```
-
-See `RELEASE_NOTES.md` for the complete B1.6 validation sequence.
+See `RELEASE_NOTES.md` for the validation checklist.

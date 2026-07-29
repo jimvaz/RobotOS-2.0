@@ -18,7 +18,7 @@ from brain.handlers import (
     handle_hello,
 )
 from brain.router import MessageRouter
-from brain.services import AudioBufferService, SpeechService, WhisperService
+from brain.services import AudioBufferService, LLMService, SpeechService, WhisperService
 from shared.models import Message
 from shared.protocol import MessageType
 
@@ -37,6 +37,12 @@ class BrainServer:
             device=CONFIG.whisper_device,
             compute_type=CONFIG.whisper_compute_type,
         )
+        self.llm = LLMService(
+            model=CONFIG.ollama_model,
+            base_url=CONFIG.ollama_url,
+            timeout_seconds=CONFIG.ollama_timeout_seconds,
+            system_prompt=CONFIG.system_prompt,
+        )
         self.router = router or self._create_default_router()
 
     def _create_default_router(self) -> MessageRouter:
@@ -49,6 +55,8 @@ class BrainServer:
         audio_start, audio_chunk, audio_end = create_audio_handlers(
             self.audio_buffers,
             self.whisper,
+            self.llm,
+            self.speech,
         )
         router.register(MessageType.AUDIO_START, audio_start)
         router.register(MessageType.AUDIO_CHUNK, audio_chunk)

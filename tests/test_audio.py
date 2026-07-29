@@ -133,3 +133,55 @@ def test_brain_audio_handler_reports_unknown_session() -> None:
     response = Message.from_json(fake.sent[0])
     assert response.type == MessageType.ERROR
     assert response.payload["code"] == "invalid_audio_chunk"
+
+@dataclass
+class FakeLLMResult:
+    text: str = "Καλημέρα! Πώς μπορώ να βοηθήσω;"
+    model: str = "robot-greek"
+
+
+class FakeLLM:
+    def __init__(self) -> None:
+        self.prompts: list[str] = []
+
+    async def generate(self, prompt: str) -> FakeLLMResult:
+        self.prompts.append(prompt)
+        return FakeLLMResult()
+
+
+class FakeSpeech:
+    def __init__(self) -> None:
+        self.messages: list[str] = []
+
+    async def say(self, text: str, **kwargs: Any) -> int:
+        self.messages.append(text)
+        return 1
+
+
+def test_audio_pipeline_sends_transcript_to_llm_and_speech() -> None:
+    fake = FakeWebSocket()
+    websocket = connection(fake)
+    llm = FakeLLM()
+    speech = FakeSpeech()
+    handlers = create_audio_handlers(
+        AudioBufferService(),
+        cast(Any, FakeWhisper()),
+        cast(Any, llm),
+        cast(Any, speech),
+    )
+    handle_start, handle_chunk, handle_end = handlers
+
+    async def scenario() -> None:
+        await handle_start(websocket, AudioStartPayload(session_id="s1").to_message())
+        await handle_chunk(
+            websocket,
+            AudioChunkPayload.from_bytes("s1", 0, b"\x01\x02\x03\x04").to_message(),
+        )
+        await handle_end(websocket, AudioEndPayload(session_id="s1", chunk_count=1).to_message())
+
+    asyncio.run(scenario())
+
+    assert llm.prompts == ["Καλημέρα RobotOS"]
+    assert speech.messages == ["Καλημέρα! Πώς μπορώ να βοηθήσω;"]
+    transcript = TranscriptPayload.from_message(Message.from_json(fake.sent[-1]))
+    assert transcript.text == "Καλημέρα RobotOS"
