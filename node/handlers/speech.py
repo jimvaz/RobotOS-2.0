@@ -24,6 +24,6 @@ def create_speech_handler(speech_queue: SpeechQueue) -> NodeSpeechHandler:
             logger.warning("Invalid SPEECH message received from Brain: {}", exc)
             return
 
-        await speech_queue.enqueue(payload.text)
+        await speech_queue.enqueue(payload.text, payload.emotion)
 
     return handle_speech

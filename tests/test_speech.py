@@ -139,7 +139,7 @@ class FakeSpeechEngine:
         self.spoken: list[str] = []
         self.fail_text = fail_text
 
-    async def speak(self, text: str) -> None:
+    async def speak(self, text: str, emotion: str | None = None) -> None:
         self.spoken.append(text)
         if text == self.fail_text:
             raise RuntimeError("synthetic TTS failure")

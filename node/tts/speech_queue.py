@@ -16,7 +16,7 @@ SpeechHook = Callable[[], Awaitable[None]]
 class SpeechEngine(Protocol):
     """Minimal interface implemented by Node text-to-speech engines."""
 
-    async def speak(self, text: str) -> None:
+    async def speak(self, text: str, emotion: str | None = None) -> None:
         """Synthesize and play one text."""
 
 
@@ -25,6 +25,7 @@ class SpeechJob:
     """One queued speech request."""
 
     text: str
+    emotion: str | None = None
 
 
 class SpeechQueue:
@@ -76,7 +77,7 @@ class SpeechQueue:
         )
         logger.info("Speech queue started")
 
-    async def enqueue(self, text: str) -> None:
+    async def enqueue(self, text: str, emotion: str | None = None) -> None:
         """Add a non-empty speech request to the queue."""
 
         clean_text = text.strip()
@@ -91,7 +92,7 @@ class SpeechQueue:
         if not self.running:
             self.start()
 
-        await self._queue.put(SpeechJob(text=clean_text))
+        await self._queue.put(SpeechJob(text=clean_text, emotion=emotion))
         logger.info("[SPEECH] queued: {!r}", clean_text)
 
     async def join(self) -> None:
@@ -137,7 +138,7 @@ class SpeechQueue:
                 self._speaking = True
                 await self._call_hook(self._on_speech_start, "start")
                 logger.info("[SPEECH] started: {!r}", job.text)
-                await self.engine.speak(job.text)
+                await self.engine.speak(job.text, job.emotion)
                 logger.info("[SPEECH] finished: {!r}", job.text)
             except asyncio.CancelledError:
                 raise

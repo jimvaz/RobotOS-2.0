@@ -14,7 +14,7 @@ from node.audio import AudioRecorder, AudioRecorderError, AudioStreamer, Recorde
 from node.config import CONFIG
 from node.handlers import create_speech_handler, handle_transcript
 from node.router import NodeMessageRouter
-from node.tts import PiperTTS, SpeechQueue
+from node.tts import PiperTTS, SpeechQueue, VoiceEngine
 from shared.models import Message
 from shared.protocol import MessageType
 from shared.version import PROTOCOL_VERSION, ROBOTOS_VERSION
@@ -31,9 +31,19 @@ class NodeClient:
             executable=CONFIG.piper_executable,
             model_path=CONFIG.piper_model,
             audio_player=CONFIG.audio_player,
+            sox_executable=CONFIG.sox_executable,
+            postprocess_enabled=CONFIG.voice_postprocess_enabled,
+        )
+        self.voice_engine = VoiceEngine(
+            self.piper,
+            profile=CONFIG.voice_profile,
+            auto_expression=CONFIG.voice_auto_expression,
+            pitch_override=CONFIG.voice_pitch_override,
+            tempo_override=CONFIG.voice_tempo_override,
+            gain_override=CONFIG.voice_gain_override,
         )
         self.speech_queue = SpeechQueue(
-            self.piper,
+            self.voice_engine,
             on_speech_start=self._pause_microphone_for_speech,
             on_speech_end=self._resume_microphone_after_speech,
         )

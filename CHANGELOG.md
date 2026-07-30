@@ -29,3 +29,13 @@
 ## 2.0.0-alpha.3 — B1.7
 
 - Added the Whisper → Ollama → Piper conversational pipeline.
+
+## B2.0 - Cartoon Voice Engine
+
+- Added configurable expressive voice profiles: `classic`, `cartoon`, `energetic`, `kid`, and `calm`.
+- Added lightweight automatic expression detection for greetings, questions, jokes, apologies, and excited replies.
+- Added Piper prosody controls for length, noise, and sentence silence.
+- Added optional SoX post-processing for pitch, tempo, and gain.
+- Preserved raw Piper playback as an automatic fallback when SoX is unavailable or fails.
+- Added environment overrides for voice tuning and tests for profile selection.
+- Updated RobotOS version to `2.0.0-beta.1`.

@@ -35,6 +35,25 @@ class NodeConfig:
         )
     )
     audio_player: str = os.getenv("AUDIO_PLAYER", "aplay")
+    sox_executable: str = os.getenv("SOX_EXECUTABLE", "sox")
+    voice_profile: str = os.getenv("ROBOTOS_VOICE_PROFILE", "cartoon")
+    voice_auto_expression: bool = _env_bool("ROBOTOS_VOICE_AUTO_EXPRESSION", True)
+    voice_postprocess_enabled: bool = _env_bool("ROBOTOS_VOICE_POSTPROCESS", True)
+    voice_pitch_override: int | None = (
+        int(os.environ["ROBOTOS_VOICE_PITCH"])
+        if os.getenv("ROBOTOS_VOICE_PITCH")
+        else None
+    )
+    voice_tempo_override: float | None = (
+        float(os.environ["ROBOTOS_VOICE_TEMPO"])
+        if os.getenv("ROBOTOS_VOICE_TEMPO")
+        else None
+    )
+    voice_gain_override: float | None = (
+        float(os.environ["ROBOTOS_VOICE_GAIN_DB"])
+        if os.getenv("ROBOTOS_VOICE_GAIN_DB")
+        else None
+    )
 
     microphone_enabled: bool = _env_bool("ROBOTOS_MICROPHONE_ENABLED", False)
     microphone_sample_rate: int = int(os.getenv("ROBOTOS_MIC_SAMPLE_RATE", "16000"))

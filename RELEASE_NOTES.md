@@ -30,3 +30,36 @@ B1.9 adds short-term conversational continuity and transcript quality controls w
 - `46 passed`
 - `compileall` passed
 - ZIP integrity checked
+
+# RobotOS B2.0 — Cartoon Voice Engine
+
+B2.0 gives the Raspberry Pi Node a configurable voice personality while preserving the stable B1.9 conversation pipeline.
+
+Default profile: `cartoon`.
+
+Install the optional post-processing dependency on Raspberry Pi:
+
+```bash
+sudo apt update
+sudo apt install -y sox
+```
+
+Recommended configuration:
+
+```bash
+export ROBOTOS_VOICE_PROFILE=cartoon
+export ROBOTOS_VOICE_AUTO_EXPRESSION=1
+export ROBOTOS_VOICE_POSTPROCESS=1
+```
+
+Available profiles are `classic`, `cartoon`, `energetic`, `kid`, and `calm`.
+
+Fine tuning is optional:
+
+```bash
+export ROBOTOS_VOICE_PITCH=180
+export ROBOTOS_VOICE_TEMPO=1.06
+export ROBOTOS_VOICE_GAIN_DB=0.5
+```
+
+When override values are omitted, each profile uses its own safe defaults. If SoX is missing, RobotOS logs a warning and continues with Piper prosody only.

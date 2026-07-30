@@ -88,3 +88,40 @@ The second answer should use the previous exchange as context. The Brain log sho
 pytest
 python -m compileall brain node shared tests
 ```
+
+## B2.0 Cartoon Voice Engine
+
+The Node now wraps Piper with an expressive voice engine. The default `cartoon` profile combines Piper prosody controls with optional SoX pitch and tempo processing.
+
+On Raspberry Pi install SoX once:
+
+```bash
+sudo apt update
+sudo apt install -y sox
+```
+
+Add these persistent settings to `~/.bashrc`:
+
+```bash
+export ROBOTOS_VOICE_PROFILE=cartoon
+export ROBOTOS_VOICE_AUTO_EXPRESSION=1
+export ROBOTOS_VOICE_POSTPROCESS=1
+```
+
+Profiles:
+
+- `classic`: original voice with minimal processing.
+- `cartoon`: brighter and slightly faster; recommended default.
+- `energetic`: faster, stronger delivery.
+- `kid`: higher and playful.
+- `calm`: slower and softer.
+
+Optional manual overrides:
+
+```bash
+export ROBOTOS_VOICE_PITCH=180
+export ROBOTOS_VOICE_TEMPO=1.06
+export ROBOTOS_VOICE_GAIN_DB=0.5
+```
+
+Unset an override to return to the selected profile defaults. Logs show the selected profile, inferred expression, pitch, and tempo for every reply.
