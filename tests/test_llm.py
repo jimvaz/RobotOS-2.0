@@ -46,6 +46,7 @@ def test_llm_service_calls_ollama_chat_api() -> None:
     assert captured["url"] == "http://127.0.0.1:11434/api/chat"
     assert captured["timeout"] == 12
     assert captured["body"]["model"] == "robot-greek"
+    assert captured["body"]["think"] is False
     assert captured["body"]["messages"][-1]["content"] == "Γεια σου"
     assert result.text == "Γεια σου!"
 

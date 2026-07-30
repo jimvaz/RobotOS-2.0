@@ -185,3 +185,35 @@ def test_audio_pipeline_sends_transcript_to_llm_and_speech() -> None:
     assert speech.messages == ["Καλημέρα! Πώς μπορώ να βοηθήσω;"]
     transcript = TranscriptPayload.from_message(Message.from_json(fake.sent[-1]))
     assert transcript.text == "Καλημέρα RobotOS"
+
+
+def test_audio_recorder_pause_and_resume_state() -> None:
+    from node.audio import AudioRecorder
+
+    recorder = AudioRecorder(sounddevice=object())
+
+    assert recorder.paused is False
+    recorder.pause()
+    assert recorder.paused is True
+    assert asyncio.run(recorder.record_utterance()) == b""
+    recorder.resume()
+    assert recorder.paused is False
+
+
+def test_audio_recorder_waits_until_resumed() -> None:
+    from node.audio import AudioRecorder
+
+    async def scenario() -> bool:
+        recorder = AudioRecorder(sounddevice=object())
+        recorder.pause()
+
+        async def resume_soon() -> None:
+            await asyncio.sleep(0.01)
+            recorder.resume()
+
+        task = asyncio.create_task(resume_soon())
+        await recorder.wait_until_resumed(poll_seconds=0.001)
+        await task
+        return recorder.paused
+
+    assert asyncio.run(scenario()) is False

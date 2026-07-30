@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from contextlib import suppress
 from dataclasses import dataclass
 from typing import Protocol
 
 from loguru import logger
+
+SpeechHook = Callable[[], Awaitable[None]]
 
 
 class SpeechEngine(Protocol):
@@ -27,11 +30,20 @@ class SpeechJob:
 class SpeechQueue:
     """Serialize speech requests without blocking the WebSocket receiver."""
 
-    def __init__(self, engine: SpeechEngine) -> None:
+    def __init__(
+        self,
+        engine: SpeechEngine,
+        *,
+        on_speech_start: SpeechHook | None = None,
+        on_speech_end: SpeechHook | None = None,
+    ) -> None:
         self.engine = engine
+        self._on_speech_start = on_speech_start
+        self._on_speech_end = on_speech_end
         self._queue: asyncio.Queue[SpeechJob] = asyncio.Queue()
         self._worker: asyncio.Task[None] | None = None
         self._stopping = False
+        self._speaking = False
 
     @property
     def pending(self) -> int:
@@ -44,6 +56,12 @@ class SpeechQueue:
         """Return whether the queue worker is active."""
 
         return self._worker is not None and not self._worker.done()
+
+    @property
+    def speaking(self) -> bool:
+        """Return whether Piper playback is currently active."""
+
+        return self._speaking
 
     def start(self) -> None:
         """Start the background worker in the current event loop."""
@@ -99,6 +117,16 @@ class SpeechQueue:
 
         logger.info("Speech queue stopped")
 
+    async def _call_hook(self, hook: SpeechHook | None, name: str) -> None:
+        if hook is None:
+            return
+        try:
+            await hook()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Speech lifecycle hook failed: {}", name)
+
     async def _run(self) -> None:
         """Process speech requests sequentially until cancelled."""
 
@@ -106,12 +134,16 @@ class SpeechQueue:
             job = await self._queue.get()
 
             try:
-                logger.info("[SPEECH] speaking: {!r}", job.text)
+                self._speaking = True
+                await self._call_hook(self._on_speech_start, "start")
+                logger.info("[SPEECH] started: {!r}", job.text)
                 await self.engine.speak(job.text)
-                logger.info("[SPEECH] completed: {!r}", job.text)
+                logger.info("[SPEECH] finished: {!r}", job.text)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 logger.exception("[SPEECH] failed: {!r}", job.text)
             finally:
+                self._speaking = False
+                await self._call_hook(self._on_speech_end, "end")
                 self._queue.task_done()

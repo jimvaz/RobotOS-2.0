@@ -32,7 +32,11 @@ class NodeClient:
             model_path=CONFIG.piper_model,
             audio_player=CONFIG.audio_player,
         )
-        self.speech_queue = SpeechQueue(self.piper)
+        self.speech_queue = SpeechQueue(
+            self.piper,
+            on_speech_start=self._pause_microphone_for_speech,
+            on_speech_end=self._resume_microphone_after_speech,
+        )
         self.audio_recorder = AudioRecorder(
             RecorderConfig(
                 sample_rate=CONFIG.microphone_sample_rate,
@@ -48,6 +52,20 @@ class NodeClient:
             create_speech_handler(self.speech_queue),
         )
         self.router.register(MessageType.TRANSCRIPT, handle_transcript)
+
+    async def _pause_microphone_for_speech(self) -> None:
+        """Stop capture before Piper playback begins."""
+
+        if not self.audio_recorder.paused:
+            self.audio_recorder.pause()
+            logger.info("MIC paused")
+
+    async def _resume_microphone_after_speech(self) -> None:
+        """Resume capture after playback and a short acoustic settling delay."""
+
+        await asyncio.sleep(CONFIG.microphone_resume_delay)
+        self.audio_recorder.resume()
+        logger.info("MIC resumed")
 
     async def send_message(self, message: Message) -> None:
         """Send a validated RobotOS protocol message."""
@@ -161,6 +179,9 @@ class NodeClient:
         logger.info("Microphone listener enabled")
         while self.running and self.websocket is not None:
             try:
+                await self.audio_recorder.wait_until_resumed()
+                if not self.running or self.websocket is None:
+                    return
                 pcm = await self.audio_recorder.record_utterance()
                 if not pcm:
                     await asyncio.sleep(CONFIG.microphone_retry_delay)

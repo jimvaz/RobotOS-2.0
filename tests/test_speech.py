@@ -219,3 +219,56 @@ def test_piper_validation_rejects_missing_model(tmp_path: Any, monkeypatch: pyte
 
     with pytest.raises(PiperError, match="μοντέλο Piper"):
         piper.validate()
+
+
+def test_speech_queue_runs_microphone_lifecycle_hooks() -> None:
+    from node.tts import SpeechQueue
+
+    async def scenario() -> tuple[list[str], list[str]]:
+        engine = FakeSpeechEngine()
+        events: list[str] = []
+
+        async def on_start() -> None:
+            events.append("paused")
+
+        async def on_end() -> None:
+            events.append("resumed")
+
+        queue = SpeechQueue(
+            engine,
+            on_speech_start=on_start,
+            on_speech_end=on_end,
+        )
+        await queue.enqueue("δοκιμή")
+        await queue.join()
+        await queue.stop()
+        return engine.spoken, events
+
+    spoken, events = asyncio.run(scenario())
+    assert spoken == ["δοκιμή"]
+    assert events == ["paused", "resumed"]
+
+
+def test_speech_queue_resumes_microphone_after_engine_failure() -> None:
+    from node.tts import SpeechQueue
+
+    async def scenario() -> list[str]:
+        events: list[str] = []
+
+        async def on_start() -> None:
+            events.append("paused")
+
+        async def on_end() -> None:
+            events.append("resumed")
+
+        queue = SpeechQueue(
+            FakeSpeechEngine(fail_text="βλάβη"),
+            on_speech_start=on_start,
+            on_speech_end=on_end,
+        )
+        await queue.enqueue("βλάβη")
+        await queue.join()
+        await queue.stop()
+        return events
+
+    assert asyncio.run(scenario()) == ["paused", "resumed"]
