@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.0.0-alpha.5 — B1.9
+
+- Added bounded per-node short-term conversation memory.
+- Added conversation history to Ollama `/api/chat` requests.
+- Added configurable near-duplicate transcript filtering.
+- Added UTF-8 JSONL conversation logging.
+- Reduced LLM temperature to 0.2 and improved the Greek system prompt.
+- Added B1.9 unit and integration tests.
+
 ## 2.0.0-alpha.4 — B1.8
 
 ### Added

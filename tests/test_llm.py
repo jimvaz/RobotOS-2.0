@@ -66,3 +66,28 @@ def test_llm_service_rejects_empty_prompt() -> None:
 
     with pytest.raises(LLMError, match="κείμενο"):
         asyncio.run(service.generate("   "))
+
+
+def test_llm_service_includes_conversation_history() -> None:
+    captured: dict[str, Any] = {}
+
+    def urlopen(request: Any, timeout: float) -> FakeResponse:
+        captured["body"] = json.loads(request.data.decode("utf-8"))
+        return FakeResponse(
+            {
+                "model": "robot-greek",
+                "message": {"role": "assistant", "content": "Ο Jim."},
+            }
+        )
+
+    history = [
+        {"role": "user", "content": "Πώς σε λένε;"},
+        {"role": "assistant", "content": "Με λένε RobotOS."},
+    ]
+    service = LLMService(urlopen=urlopen)
+    asyncio.run(service.generate("Ποιος σε έφτιαξε;", history=history))
+
+    messages = captured["body"]["messages"]
+    assert messages[1:3] == history
+    assert messages[-1] == {"role": "user", "content": "Ποιος σε έφτιαξε;"}
+    assert captured["body"]["options"]["temperature"] == 0.2

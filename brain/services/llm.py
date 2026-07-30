@@ -47,21 +47,29 @@ class LLMService:
         self.system_prompt = system_prompt
         self._urlopen = urlopen or urllib.request.urlopen
 
-    def _generate_sync(self, prompt: str) -> LLMResult:
+    def _generate_sync(
+        self,
+        prompt: str,
+        history: list[dict[str, str]] | None = None,
+    ) -> LLMResult:
         clean_prompt = prompt.strip()
         if not clean_prompt:
             raise LLMError("Δεν υπάρχει κείμενο για αποστολή στο Ollama.")
+
+        messages: list[dict[str, str]] = [
+            {"role": "system", "content": self.system_prompt}
+        ]
+        if history:
+            messages.extend(history)
+        messages.append({"role": "user", "content": clean_prompt})
 
         body = json.dumps(
             {
                 "model": self.model,
                 "stream": False,
                 "think": False,
-                "messages": [
-                    {"role": "system", "content": self.system_prompt},
-                    {"role": "user", "content": clean_prompt},
-                ],
-                "options": {"temperature": 0.4},
+                "messages": messages,
+                "options": {"temperature": 0.2},
             },
             ensure_ascii=False,
         ).encode("utf-8")
@@ -98,7 +106,11 @@ class LLMService:
             raise LLMError("Το Ollama επέστρεψε κενή απάντηση.")
         return LLMResult(text=text, model=str(payload.get("model", self.model)))
 
-    async def generate(self, prompt: str) -> LLMResult:
-        """Generate a reply without blocking the WebSocket event loop."""
+    async def generate(
+        self,
+        prompt: str,
+        history: list[dict[str, str]] | None = None,
+    ) -> LLMResult:
+        """Generate a reply with optional short-term history."""
 
-        return await asyncio.to_thread(self._generate_sync, prompt)
+        return await asyncio.to_thread(self._generate_sync, prompt, history)

@@ -1,4 +1,4 @@
-"""Brain handlers for streamed PCM audio and Whisper transcription."""
+"""Brain handlers for streamed PCM audio and conversation generation."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from websockets.asyncio.server import ServerConnection
 
 from brain.services.audio_buffer import AudioBufferService, AudioSessionError
+from brain.services.conversation import ConversationLogger, ConversationMemory, TranscriptFilter
 from brain.services.llm import LLMError, LLMService
 from brain.services.speech import SpeechService
 from brain.services.whisper import WhisperError, WhisperService
@@ -31,6 +32,9 @@ def create_audio_handlers(
     whisper: WhisperService,
     llm: LLMService | None = None,
     speech: SpeechService | None = None,
+    memory: ConversationMemory | None = None,
+    transcript_filter: TranscriptFilter | None = None,
+    conversation_logger: ConversationLogger | None = None,
 ) -> tuple[AudioHandler, AudioHandler, AudioHandler]:
     async def handle_start(websocket: ServerConnection, message: Message) -> None:
         try:
@@ -61,26 +65,43 @@ def create_audio_handlers(
                 sample_rate=metadata.sample_rate,
                 language=metadata.language,
             )
+            transcript_text = result.text.strip()
             transcript = TranscriptPayload(
                 session_id=payload.session_id,
-                text=result.text,
+                text=transcript_text,
                 language=result.language,
                 duration_seconds=result.duration_seconds,
             )
             await websocket.send(transcript.to_message().to_json())
-            logger.info("Transcript: '{}'", result.text)
+            logger.info("Transcript: {!r}", transcript_text)
 
-            if not result.text.strip():
+            if transcript_filter is not None:
+                accepted, reason = transcript_filter.accept(websocket, transcript_text)
+                if not accepted:
+                    logger.info("Transcript skipped: reason={}, text={!r}", reason, transcript_text)
+                    return
+            elif not transcript_text:
                 logger.info("Empty transcript; skipping LLM generation")
                 return
+
             if llm is not None and speech is not None:
-                llm_result = await llm.generate(result.text)
+                history = memory.messages(websocket) if memory is not None else None
+                llm_result = await llm.generate(transcript_text, history=history)
                 logger.info(
                     "LLM response generated: model={}, text={!r}",
                     llm_result.model,
                     llm_result.text,
                 )
                 await speech.say(llm_result.text)
+                if memory is not None:
+                    memory.add(websocket, transcript_text, llm_result.text)
+                    logger.info("Conversation memory updated: turns={}", len(memory.messages(websocket)) // 2)
+                if conversation_logger is not None:
+                    await conversation_logger.append(
+                        transcript_text,
+                        llm_result.text,
+                        llm_result.model,
+                    )
         except (ValidationError, ValueError, AudioSessionError) as exc:
             await websocket.send(_error("invalid_audio_end", str(exc), message.id).to_json())
         except WhisperError as exc:

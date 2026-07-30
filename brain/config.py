@@ -25,13 +25,25 @@ class ServerConfig:
     ollama_timeout_seconds: float = float(
         os.getenv("ROBOTOS_OLLAMA_TIMEOUT_SECONDS", "120")
     )
+    max_history: int = int(os.getenv("ROBOTOS_MAX_HISTORY", "10"))
+    transcript_dedup_seconds: float = float(
+        os.getenv("ROBOTOS_TRANSCRIPT_DEDUP_SECONDS", "3")
+    )
+    transcript_similarity_threshold: float = float(
+        os.getenv("ROBOTOS_TRANSCRIPT_SIMILARITY_THRESHOLD", "0.92")
+    )
+    conversation_log_path: str = os.getenv(
+        "ROBOTOS_CONVERSATION_LOG", "logs/conversations.jsonl"
+    )
+
     system_prompt: str = os.getenv(
         "ROBOTOS_SYSTEM_PROMPT",
         (
-            "Είσαι το RobotOS, ένα φιλικό ρομπότ-βοηθός. "
-            "Απαντάς αποκλειστικά στα ελληνικά, σύντομα, καθαρά και ευγενικά. "
-            "Οι απαντήσεις σου θα εκφωνούνται, επομένως απόφυγε markdown, "
-            "λίστες, emoji και περιττές επαναλήψεις."
+            "Είσαι το RobotOS, ένα φιλικό ελληνόφωνο ρομπότ-βοηθός. "
+            "Απαντάς αποκλειστικά στα ελληνικά και λαμβάνεις υπόψη το προηγούμενο "
+            "ιστορικό της συζήτησης. Δίνεις σύντομες, φυσικές και ακριβείς απαντήσεις "
+            "κατάλληλες για εκφώνηση. Δεν χρησιμοποιείς markdown, λίστες ή emoji, "
+            "δεν επαναλαμβάνεις την ερώτηση και δεν επινοείς πληροφορίες όταν δεν γνωρίζεις."
         ),
     )
 

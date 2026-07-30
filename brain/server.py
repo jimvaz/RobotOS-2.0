@@ -18,7 +18,15 @@ from brain.handlers import (
     handle_hello,
 )
 from brain.router import MessageRouter
-from brain.services import AudioBufferService, LLMService, SpeechService, WhisperService
+from brain.services import (
+    AudioBufferService,
+    ConversationLogger,
+    ConversationMemory,
+    LLMService,
+    SpeechService,
+    TranscriptFilter,
+    WhisperService,
+)
 from shared.models import Message
 from shared.protocol import MessageType
 
@@ -37,6 +45,12 @@ class BrainServer:
             device=CONFIG.whisper_device,
             compute_type=CONFIG.whisper_compute_type,
         )
+        self.memory = ConversationMemory(max_turns=CONFIG.max_history)
+        self.transcript_filter = TranscriptFilter(
+            dedup_seconds=CONFIG.transcript_dedup_seconds,
+            similarity_threshold=CONFIG.transcript_similarity_threshold,
+        )
+        self.conversation_logger = ConversationLogger(CONFIG.conversation_log_path)
         self.llm = LLMService(
             model=CONFIG.ollama_model,
             base_url=CONFIG.ollama_url,
@@ -57,6 +71,9 @@ class BrainServer:
             self.whisper,
             self.llm,
             self.speech,
+            self.memory,
+            self.transcript_filter,
+            self.conversation_logger,
         )
         router.register(MessageType.AUDIO_START, audio_start)
         router.register(MessageType.AUDIO_CHUNK, audio_chunk)
@@ -83,6 +100,8 @@ class BrainServer:
             logger.exception("Unexpected client error")
         finally:
             self.audio_buffers.discard_connection(websocket)
+            self.memory.clear(websocket)
+            self.transcript_filter.clear(websocket)
             await self.connections.disconnect(websocket)
             logger.info("Node disconnected: {}", remote_address)
 

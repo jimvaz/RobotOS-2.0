@@ -1,6 +1,6 @@
 [project]
 name = "robotos"
-version = "2.0.0a1"
+version = "2.0.0a5"
 description = "RobotOS 2.0 shared communication core"
 requires-python = ">=3.11"
 dependencies = [

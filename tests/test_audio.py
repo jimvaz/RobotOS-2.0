@@ -144,7 +144,9 @@ class FakeLLM:
     def __init__(self) -> None:
         self.prompts: list[str] = []
 
-    async def generate(self, prompt: str) -> FakeLLMResult:
+    async def generate(
+        self, prompt: str, history: list[dict[str, str]] | None = None
+    ) -> FakeLLMResult:
         self.prompts.append(prompt)
         return FakeLLMResult()
 

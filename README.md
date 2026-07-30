@@ -2,7 +2,7 @@
 
 RobotOS separates the AI Brain, Raspberry Pi Node, and Arduino hardware controller.
 
-## Current milestone: B1.8
+## Current milestone: B1.9
 
 The verified conversation path is:
 
@@ -10,26 +10,23 @@ The verified conversation path is:
 Raspberry Pi microphone
 → WebSocket audio stream
 → Whisper Turbo on Windows
+→ transcript filtering
+→ short-term conversation memory
 → Ollama robot-greek
 → SPEECH event
 → Piper on Raspberry Pi
 → speakers
 ```
 
-B1.8 adds turn-taking so the microphone does not hear the robot's own voice:
+B1.8 turn-taking remains active: the microphone pauses during Piper playback and resumes after the configurable settling delay.
 
-```text
-LISTENING
-→ user utterance
-→ PROCESSING
-→ MIC paused
-→ Piper playback
-→ 400 ms settling delay
-→ MIC resumed
-→ LISTENING
-```
+B1.9 improves conversation quality with:
 
-If playback begins while the microphone is already recording, that partial recording is discarded rather than sent to Whisper.
+- up to 10 recent user/assistant turns per connected Node;
+- near-duplicate transcript rejection within a short time window;
+- a lower Ollama temperature for more stable answers;
+- a clearer Greek TTS-oriented system prompt;
+- UTF-8 JSONL conversation logging.
 
 ## Windows Brain
 
@@ -39,36 +36,51 @@ cd C:\RobotOS-2.0
 python -m brain.main
 ```
 
-Relevant Ollama configuration:
+Optional configuration:
 
 ```powershell
 $env:ROBOTOS_OLLAMA_MODEL="robot-greek"
 $env:ROBOTOS_OLLAMA_URL="http://127.0.0.1:11434"
+$env:ROBOTOS_MAX_HISTORY="10"
+$env:ROBOTOS_TRANSCRIPT_DEDUP_SECONDS="3"
+$env:ROBOTOS_TRANSCRIPT_SIMILARITY_THRESHOLD="0.92"
+$env:ROBOTOS_CONVERSATION_LOG="logs/conversations.jsonl"
 ```
 
-The Brain sends `think: false` to Ollama so the final Greek response is returned directly.
+The Brain sends `think: false` to Ollama. Conversation history is kept in memory only while the Node remains connected. Completed turns are appended to `logs/conversations.jsonl` by default.
 
 ## Raspberry Pi Node
 
+The existing permanent environment settings can remain in `~/.bashrc`:
+
+```bash
+export ROBOTOS_BRAIN_HOST=192.168.1.26
+export ROBOTOS_BRAIN_PORT=8765
+export ROBOTOS_MICROPHONE_ENABLED=1
+export PIPER_EXECUTABLE="$HOME/RobotOS-2.0/node_runtime/.venv/bin/piper"
+export PIPER_MODEL="$HOME/RobotOS-2.0/models/piper/el_GR-rapunzelina-medium.onnx"
+export AUDIO_PLAYER=aplay
+export ROBOTOS_MIC_RESUME_DELAY=0.4
+```
+
+Start the Node:
+
 ```bash
 cd ~/RobotOS-2.0
-source .venv/bin/activate
-export ROBOTOS_BRAIN_HOST=<WINDOWS_IP>
-export ROBOTOS_MICROPHONE_ENABLED=1
-export ROBOTOS_MIC_RESUME_DELAY=0.4
+source node_runtime/.venv/bin/activate
 python -m node.main
 ```
 
-Expected turn-taking logs:
+## B1.9 hardware test
+
+Ask a connected pair of questions:
 
 ```text
-MIC paused
-[SPEECH] started: '...'
-[SPEECH] finished: '...'
-MIC resumed
+Πώς σε λένε;
+Και ποιος σε έφτιαξε;
 ```
 
-Increase `ROBOTOS_MIC_RESUME_DELAY` to `0.6` or `0.8` only when the room or speakers have a noticeable echo tail.
+The second answer should use the previous exchange as context. The Brain log should include `Conversation memory updated`, and the conversation file should contain one JSON object per completed turn.
 
 ## Validation
 
