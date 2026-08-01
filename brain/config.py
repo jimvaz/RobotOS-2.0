@@ -26,6 +26,14 @@ class ServerConfig:
         os.getenv("ROBOTOS_OLLAMA_TIMEOUT_SECONDS", "120")
     )
     max_history: int = int(os.getenv("ROBOTOS_MAX_HISTORY", "10"))
+
+    tts_engine: str = os.getenv("ROBOTOS_TTS_ENGINE", "piper").strip().lower()
+    chatterbox_device: str = os.getenv("ROBOTOS_CHATTERBOX_DEVICE", "cuda")
+    chatterbox_language: str = os.getenv("ROBOTOS_CHATTERBOX_LANGUAGE", "el")
+    chatterbox_reference_audio: str | None = os.getenv("ROBOTOS_CHATTERBOX_REFERENCE_AUDIO")
+    chatterbox_startup_timeout: float = float(os.getenv("ROBOTOS_CHATTERBOX_STARTUP_TIMEOUT", "180"))
+    chatterbox_synthesis_timeout: float = float(os.getenv("ROBOTOS_CHATTERBOX_SYNTHESIS_TIMEOUT", "180"))
+    tts_fallback_to_node: bool = os.getenv("ROBOTOS_TTS_FALLBACK", "1").strip().lower() in {"1", "true", "yes", "on"}
     transcript_dedup_seconds: float = float(
         os.getenv("ROBOTOS_TRANSCRIPT_DEDUP_SECONDS", "3")
     )

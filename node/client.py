@@ -13,8 +13,10 @@ from websockets.exceptions import ConnectionClosed
 from node.audio import AudioRecorder, AudioRecorderError, AudioStreamer, RecorderConfig
 from node.config import CONFIG
 from node.handlers import create_speech_handler, handle_transcript
+from node.handlers.audio_playback import create_audio_playback_handler
 from node.router import NodeMessageRouter
 from node.tts import PiperTTS, SpeechQueue, VoiceEngine
+from node.tts.audio_player import AudioPlaybackQueue
 from shared.models import Message
 from shared.protocol import MessageType
 from shared.version import PROTOCOL_VERSION, ROBOTOS_VERSION
@@ -47,6 +49,11 @@ class NodeClient:
             on_speech_start=self._pause_microphone_for_speech,
             on_speech_end=self._resume_microphone_after_speech,
         )
+        self.audio_playback_queue = AudioPlaybackQueue(
+            CONFIG.audio_player,
+            on_start=self._pause_microphone_for_speech,
+            on_end=self._resume_microphone_after_speech,
+        )
         self.audio_recorder = AudioRecorder(
             RecorderConfig(
                 sample_rate=CONFIG.microphone_sample_rate,
@@ -60,6 +67,10 @@ class NodeClient:
         self.router.register(
             MessageType.SPEECH,
             create_speech_handler(self.speech_queue),
+        )
+        self.router.register(
+            MessageType.AUDIO_PLAYBACK,
+            create_audio_playback_handler(self.audio_playback_queue),
         )
         self.router.register(MessageType.TRANSCRIPT, handle_transcript)
 
@@ -272,6 +283,7 @@ class NodeClient:
         """Connect continuously and automatically reconnect after failure."""
 
         self.speech_queue.start()
+        self.audio_playback_queue.start()
 
         while self.running:
             try:
@@ -311,6 +323,7 @@ class NodeClient:
 
         self.running = False
         await self.speech_queue.stop(drain=True)
+        await self.audio_playback_queue.stop()
 
     def stop(self) -> None:
         """Request a graceful Node shutdown."""

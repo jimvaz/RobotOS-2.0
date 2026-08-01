@@ -6,3 +6,18 @@ venv/
 logs/
 .env
 .vscode/
+
+# Local environments and AI models
+.venv/
+node_runtime/
+models/
+.cache/
+
+# Generated archives and audio
+*.zip
+*.wav
+
+# Python cache
+__pycache__/
+*.py[cod]
+.pytest_cache/

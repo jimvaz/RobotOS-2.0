@@ -27,6 +27,7 @@ from brain.services import (
     TranscriptFilter,
     WhisperService,
 )
+from brain.services.tts import ChatterboxTTS
 from shared.models import Message
 from shared.protocol import MessageType
 
@@ -36,7 +37,21 @@ class BrainServer:
 
     def __init__(self, router: MessageRouter | None = None) -> None:
         self.connections = ConnectionManager()
-        self.speech = SpeechService(self.connections)
+        tts_backend = None
+        if CONFIG.tts_engine == "chatterbox":
+            tts_backend = ChatterboxTTS(
+                device=CONFIG.chatterbox_device,
+                language_id=CONFIG.chatterbox_language,
+                reference_audio=CONFIG.chatterbox_reference_audio,
+                startup_timeout=CONFIG.chatterbox_startup_timeout,
+                synthesis_timeout=CONFIG.chatterbox_synthesis_timeout,
+            )
+        elif CONFIG.tts_engine != "piper":
+            logger.warning("Unknown TTS engine %r; using Piper", CONFIG.tts_engine)
+        self.speech = SpeechService(
+            self.connections, backend=tts_backend, fallback_to_node=CONFIG.tts_fallback_to_node
+        )
+        logger.info("TTS engine configured: {}", CONFIG.tts_engine)
         self.audio_buffers = AudioBufferService(
             max_audio_bytes=CONFIG.max_audio_seconds * 16000 * 2
         )
@@ -133,9 +148,12 @@ class BrainServer:
         """Start the WebSocket server and wait indefinitely."""
 
         logger.info("Starting WebSocket server on ws://{}:{}", CONFIG.host, CONFIG.port)
-        async with serve(self.handle_client, CONFIG.host, CONFIG.port):
-            logger.info("Waiting for RobotOS nodes...")
-            await asyncio.Future()
+        try:
+            async with serve(self.handle_client, CONFIG.host, CONFIG.port):
+                logger.info("Waiting for RobotOS nodes...")
+                await asyncio.Future()
+        finally:
+            await self.speech.close()
 
     def run(self) -> None:
         """Run the Brain server."""

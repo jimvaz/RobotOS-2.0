@@ -1,0 +1,3 @@
+# Install only in the Windows Brain Python 3.11 environment.
+# Chatterbox brings its own pinned Torch/audio dependencies.
+chatterbox-tts

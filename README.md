@@ -125,3 +125,52 @@ export ROBOTOS_VOICE_GAIN_DB=0.5
 ```
 
 Unset an override to return to the selected profile defaults. Logs show the selected profile, inferred expression, pitch, and tempo for every reply.
+
+## B2.1 high-quality local voice
+
+RobotOS can now synthesize speech on the Windows Brain with Chatterbox Multilingual and stream the generated WAV to the Raspberry Pi. This is fully local and has no usage billing or API quota. Piper remains available as an automatic fallback.
+
+Install the optional Brain backend with Python 3.11:
+
+```powershell
+pip install -r requirements-chatterbox.txt
+```
+
+Select it before starting the Brain:
+
+```powershell
+$env:ROBOTOS_TTS_ENGINE="chatterbox"
+$env:ROBOTOS_CHATTERBOX_DEVICE="cuda"
+$env:ROBOTOS_CHATTERBOX_LANGUAGE="el"
+$env:ROBOTOS_CHATTERBOX_REFERENCE_AUDIO="C:\robot\voices\boy_voice_reference.wav"
+$env:ROBOTOS_TTS_FALLBACK="1"
+python -m brain.main
+```
+
+The reference audio is optional. Without it, Chatterbox uses its default voice. The Raspberry Pi requires no extra AI model; it only receives and plays the WAV file.
+
+## B2.2 isolated Chatterbox worker
+
+On Windows, faster-whisper/CTranslate2 and Chatterbox/PyTorch may load incompatible CUDA or cuDNN DLLs when they share one process. B2.2 runs Chatterbox in a persistent subprocess, so both systems can use the RTX GPU without sharing a DLL namespace.
+
+Use the normal Brain settings:
+
+```powershell
+$env:ROBOTOS_TTS_ENGINE="chatterbox"
+$env:ROBOTOS_CHATTERBOX_DEVICE="cuda"
+$env:ROBOTOS_CHATTERBOX_LANGUAGE="el"
+$env:ROBOTOS_TTS_FALLBACK="1"
+python -m brain.main
+```
+
+Expected first-use logs:
+
+```text
+Starting isolated Chatterbox worker on cuda
+TTS worker: Loading Chatterbox Multilingual on cuda
+TTS worker: Chatterbox model loaded
+Chatterbox worker ready: pid=...
+High-quality TTS generated: engine=chatterbox, bytes=...
+```
+
+The first reply loads the model. Later replies reuse the same worker and are faster. The worker automatically prioritizes the cuDNN 9 DLLs bundled with PyTorch and excludes the legacy CUDA v8.9.7 cuDNN path from its own environment.
