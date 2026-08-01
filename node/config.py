@@ -58,11 +58,11 @@ class NodeConfig:
     microphone_enabled: bool = _env_bool("ROBOTOS_MICROPHONE_ENABLED", False)
     microphone_sample_rate: int = int(os.getenv("ROBOTOS_MIC_SAMPLE_RATE", "16000"))
     microphone_threshold: float = float(os.getenv("ROBOTOS_MIC_THRESHOLD", "0.015"))
-    microphone_silence_ms: int = int(os.getenv("ROBOTOS_MIC_SILENCE_MS", "700"))
-    microphone_pre_buffer_ms: int = int(os.getenv("ROBOTOS_MIC_PRE_BUFFER_MS", "300"))
-    microphone_max_seconds: float = float(os.getenv("ROBOTOS_MIC_MAX_SECONDS", "15"))
+    microphone_silence_ms: int = int(os.getenv("ROBOTOS_MIC_SILENCE_MS", "400"))
+    microphone_pre_buffer_ms: int = int(os.getenv("ROBOTOS_MIC_PRE_BUFFER_MS", "200"))
+    microphone_max_seconds: float = float(os.getenv("ROBOTOS_MIC_MAX_SECONDS", "8"))
     microphone_retry_delay: float = float(os.getenv("ROBOTOS_MIC_RETRY_DELAY", "1"))
-    microphone_resume_delay: float = float(os.getenv("ROBOTOS_MIC_RESUME_DELAY", "0.4"))
+    microphone_resume_delay: float = float(os.getenv("ROBOTOS_MIC_RESUME_DELAY", "0.25"))
     language: str = os.getenv("ROBOTOS_LANGUAGE", "el")
 
     @property

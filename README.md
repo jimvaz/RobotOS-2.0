@@ -195,3 +195,24 @@ High-quality TTS generated: engine=chatterbox, bytes=...
 ```
 
 The first reply loads the model. Later replies reuse the same worker and are faster. The worker automatically prioritizes the cuDNN 9 DLLs bundled with PyTorch and excludes the legacy CUDA v8.9.7 cuDNN path from its own environment.
+
+## B2.4 low-latency settings
+
+The default voice pipeline now ends an utterance after 400 ms of silence, keeps 200 ms of pre-roll, and caps recordings at 8 seconds. Whisper and Chatterbox are preloaded during Brain startup, while Ollama replies are limited for spoken interaction.
+
+Optional overrides:
+
+```text
+ROBOTOS_MIC_SILENCE_MS=400
+ROBOTOS_MIC_PRE_BUFFER_MS=200
+ROBOTOS_MIC_MAX_SECONDS=8
+ROBOTOS_MIC_RESUME_DELAY=0.25
+ROBOTOS_WHISPER_BEAM_SIZE=1
+ROBOTOS_WHISPER_BEST_OF=1
+ROBOTOS_WHISPER_VAD_FILTER=0
+ROBOTOS_PRELOAD_MODELS=1
+ROBOTOS_OLLAMA_NUM_PREDICT=80
+ROBOTOS_OLLAMA_NUM_CTX=4096
+```
+
+Brain logs now include `stt`, `LLM latency`, `Speech latency`, and total pipeline timing.

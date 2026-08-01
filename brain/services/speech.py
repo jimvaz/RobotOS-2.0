@@ -115,6 +115,13 @@ class SpeechService:
             self._chunk_size,
         )
 
+    async def preload(self) -> None:
+        """Preload the configured TTS backend when supported."""
+        if self._backend is not None:
+            preload = getattr(self._backend, "preload", None)
+            if preload is not None:
+                await preload()
+
     async def close(self) -> None:
         """Release resources held by the configured TTS backend."""
         if self._backend is not None:

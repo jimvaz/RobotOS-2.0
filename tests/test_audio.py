@@ -219,3 +219,12 @@ def test_audio_recorder_waits_until_resumed() -> None:
         return recorder.paused
 
     assert asyncio.run(scenario()) is False
+
+
+def test_low_latency_recorder_defaults() -> None:
+    from node.audio import RecorderConfig
+
+    config = RecorderConfig()
+    assert config.silence_ms == 700  # library default remains backwards compatible
+    assert config.pre_buffer_ms == 300
+    assert config.max_utterance_seconds == 15.0

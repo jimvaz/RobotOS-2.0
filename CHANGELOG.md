@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.0.0-beta.5 — B2.4 Low-Latency Voice Pipeline
+
+- Reduced microphone endpoint silence from 700 ms to 400 ms by default.
+- Reduced pre-buffer from 300 ms to 200 ms and maximum utterance from 15 s to 8 s.
+- Reduced post-playback microphone delay to 250 ms.
+- Added configurable fast Whisper decoding (`beam_size=1`, `best_of=1`) and disabled redundant Whisper VAD by default because endpointing already happens on the Node.
+- Added startup preloading for Whisper and the persistent Chatterbox worker.
+- Limited Ollama replies with configurable `num_predict=80` and `num_ctx=4096`.
+- Added per-stage latency logs for STT, LLM, TTS, and the complete pipeline.
+- Version bumped to `2.0.0-beta.5`.
+
 ## 2.0.0-beta.4 — B2.3
 
 - Added streamed Brain audio protocol: `audio_playback_start`, `audio_playback_chunk`, and `audio_playback_end`.

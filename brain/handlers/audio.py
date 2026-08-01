@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
+from time import perf_counter
 
 from loguru import logger
 from pydantic import ValidationError
@@ -60,11 +61,14 @@ def create_audio_handlers(
                 payload.session_id,
                 len(pcm),
             )
+            pipeline_started = perf_counter()
+            stt_started = perf_counter()
             result = await whisper.transcribe(
                 pcm,
                 sample_rate=metadata.sample_rate,
                 language=metadata.language,
             )
+            stt_seconds = perf_counter() - stt_started
             transcript_text = result.text.strip()
             transcript = TranscriptPayload(
                 session_id=payload.session_id,
@@ -73,7 +77,7 @@ def create_audio_handlers(
                 duration_seconds=result.duration_seconds,
             )
             await websocket.send(transcript.to_message().to_json())
-            logger.info("Transcript: {!r}", transcript_text)
+            logger.info("Transcript: {!r} (stt={:.2f}s, audio={:.2f}s)", transcript_text, stt_seconds, result.duration_seconds)
 
             if transcript_filter is not None:
                 accepted, reason = transcript_filter.accept(websocket, transcript_text)
@@ -86,13 +90,19 @@ def create_audio_handlers(
 
             if llm is not None and speech is not None:
                 history = memory.messages(websocket) if memory is not None else None
+                llm_started = perf_counter()
                 llm_result = await llm.generate(transcript_text, history=history)
+                llm_seconds = perf_counter() - llm_started
                 logger.info(
                     "LLM response generated: model={}, text={!r}",
                     llm_result.model,
                     llm_result.text,
                 )
+                logger.info("LLM latency: {:.2f}s", llm_seconds)
+                tts_started = perf_counter()
                 await speech.say(llm_result.text)
+                tts_seconds = perf_counter() - tts_started
+                logger.info("Speech latency: {:.2f}s; total pipeline: {:.2f}s", tts_seconds, perf_counter() - pipeline_started)
                 if memory is not None:
                     memory.add(websocket, transcript_text, llm_result.text)
                     logger.info("Conversation memory updated: turns={}", len(memory.messages(websocket)) // 2)

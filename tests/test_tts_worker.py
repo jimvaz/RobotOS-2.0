@@ -62,3 +62,19 @@ def test_extract_text_rejects_non_string_value() -> None:
     import pytest
     with pytest.raises(TypeError, match="must be str"):
         extract_text({"text": {"value": "Γεια"}})
+
+
+def test_chatterbox_preload_starts_worker_without_synthesis() -> None:
+    async def scenario() -> int | None:
+        backend = ChatterboxWorkerTTS(
+            device="cpu",
+            worker_module="tests.fake_tts_worker",
+            startup_timeout=10,
+            synthesis_timeout=10,
+        )
+        await backend.preload()
+        pid = backend._process.pid if backend._process else None
+        await backend.close()
+        return pid
+
+    assert asyncio.run(scenario()) is not None

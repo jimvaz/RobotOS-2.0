@@ -62,6 +62,9 @@ class BrainServer:
             model_name=CONFIG.whisper_model,
             device=CONFIG.whisper_device,
             compute_type=CONFIG.whisper_compute_type,
+            beam_size=CONFIG.whisper_beam_size,
+            best_of=CONFIG.whisper_best_of,
+            vad_filter=CONFIG.whisper_vad_filter,
         )
         self.memory = ConversationMemory(max_turns=CONFIG.max_history)
         self.transcript_filter = TranscriptFilter(
@@ -74,6 +77,8 @@ class BrainServer:
             base_url=CONFIG.ollama_url,
             timeout_seconds=CONFIG.ollama_timeout_seconds,
             system_prompt=CONFIG.system_prompt,
+            num_predict=CONFIG.ollama_num_predict,
+            num_ctx=CONFIG.ollama_num_ctx,
         )
         self.router = router or self._create_default_router()
 
@@ -147,9 +152,25 @@ class BrainServer:
         logger.info("Message received: type={}, id={}", message.type, message.id)
         await self.router.dispatch(websocket, message)
 
+    async def _preload_services(self) -> None:
+        if not CONFIG.preload_models:
+            return
+        logger.info("Preloading Whisper and TTS services...")
+        results = await asyncio.gather(
+            self.whisper.preload(),
+            self.speech.preload(),
+            return_exceptions=True,
+        )
+        for name, result in zip(("Whisper", "TTS"), results):
+            if isinstance(result, Exception):
+                logger.warning("{} preload failed: {}", name, result)
+            else:
+                logger.info("{} preload complete", name)
+
     async def start(self) -> None:
         """Start the WebSocket server and wait indefinitely."""
 
+        await self._preload_services()
         logger.info("Starting WebSocket server on ws://{}:{}", CONFIG.host, CONFIG.port)
         try:
             async with serve(

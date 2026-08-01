@@ -40,12 +40,16 @@ class LLMService:
         timeout_seconds: float = 120.0,
         system_prompt: str = DEFAULT_SYSTEM_PROMPT,
         urlopen: Any | None = None,
+        num_predict: int = 80,
+        num_ctx: int = 4096,
     ) -> None:
         self.model = model
         self.base_url = base_url.rstrip("/")
         self.timeout_seconds = timeout_seconds
         self.system_prompt = system_prompt
         self._urlopen = urlopen or urllib.request.urlopen
+        self.num_predict = num_predict
+        self.num_ctx = num_ctx
 
     def _generate_sync(
         self,
@@ -69,7 +73,7 @@ class LLMService:
                 "stream": False,
                 "think": False,
                 "messages": messages,
-                "options": {"temperature": 0.2},
+                "options": {"temperature": 0.2, "num_predict": self.num_predict, "num_ctx": self.num_ctx},
             },
             ensure_ascii=False,
         ).encode("utf-8")

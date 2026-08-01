@@ -1,3 +1,9 @@
+# RobotOS 2.0.0-beta.5 — B2.4
+
+This release focuses on response speed. The Raspberry Pi stops recording sooner after the user finishes speaking, Whisper uses fast decoding, the Brain preloads Whisper and Chatterbox at startup, and Ollama produces shorter speech-friendly answers. Detailed stage timings make remaining bottlenecks measurable.
+
+Expected improvement depends on hardware and phrase length. This release reduces avoidable waiting but does not yet implement token-by-token LLM or true incremental Chatterbox synthesis.
+
 # RobotOS 2.0 B2.3 — Streaming Audio Engine
 
 B2.3 fixes long Chatterbox responses disconnecting the Raspberry Pi with WebSocket code 1009. Generated WAV data is now transported as small ordered chunks and played through `aplay` stdin on the Node.

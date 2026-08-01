@@ -167,6 +167,12 @@ class ChatterboxWorkerTTS:
                 pass
             self._stderr_task = None
 
+    async def preload(self) -> None:
+        """Start the persistent worker before the first request."""
+
+        async with self._lock:
+            await self._start_worker()
+
     async def synthesize(self, text: str) -> bytes:
         clean = text.strip()
         if not clean:

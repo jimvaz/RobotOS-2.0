@@ -27,11 +27,17 @@ class WhisperService:
         device: str = "cuda",
         compute_type: str = "float16",
         model: Any | None = None,
+        beam_size: int = 1,
+        best_of: int = 1,
+        vad_filter: bool = False,
     ) -> None:
         self.model_name = model_name
         self.device = device
         self.compute_type = compute_type
         self._model = model
+        self.beam_size = beam_size
+        self.best_of = best_of
+        self.vad_filter = vad_filter
 
     def _load_model(self) -> Any:
         if self._model is not None:
@@ -72,14 +78,20 @@ class WhisperService:
         segments, info = model.transcribe(
             samples,
             language=language,
-            beam_size=1,
-            vad_filter=True,
+            beam_size=self.beam_size,
+            best_of=self.best_of,
+            vad_filter=self.vad_filter,
             condition_on_previous_text=False,
         )
         text = " ".join(segment.text.strip() for segment in segments).strip()
         detected_language = getattr(info, "language", language) or language
         duration = len(samples) / sample_rate
         return WhisperResult(text=text, language=detected_language, duration_seconds=duration)
+
+    async def preload(self) -> None:
+        """Load the model before the first utterance."""
+
+        await asyncio.to_thread(self._load_model)
 
     async def transcribe(
         self,

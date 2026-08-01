@@ -91,3 +91,22 @@ def test_llm_service_includes_conversation_history() -> None:
     assert messages[1:3] == history
     assert messages[-1] == {"role": "user", "content": "Ποιος σε έφτιαξε;"}
     assert captured["body"]["options"]["temperature"] == 0.2
+
+
+def test_llm_service_uses_low_latency_limits() -> None:
+    captured: dict[str, Any] = {}
+
+    def urlopen(request: Any, timeout: float) -> FakeResponse:
+        captured["body"] = json.loads(request.data.decode("utf-8"))
+        return FakeResponse(
+            {
+                "model": "robot-greek",
+                "message": {"role": "assistant", "content": "Έγινε."},
+            }
+        )
+
+    service = LLMService(urlopen=urlopen, num_predict=64, num_ctx=4096)
+    asyncio.run(service.generate("Δοκιμή"))
+
+    assert captured["body"]["options"]["num_predict"] == 64
+    assert captured["body"]["options"]["num_ctx"] == 4096

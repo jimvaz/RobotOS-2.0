@@ -18,14 +18,20 @@ class ServerConfig:
         "ROBOTOS_WHISPER_COMPUTE_TYPE",
         "float16",
     )
-    max_audio_seconds: int = int(os.getenv("ROBOTOS_MAX_AUDIO_SECONDS", "60"))
+    max_audio_seconds: int = int(os.getenv("ROBOTOS_MAX_AUDIO_SECONDS", "20"))
+    whisper_beam_size: int = int(os.getenv("ROBOTOS_WHISPER_BEAM_SIZE", "1"))
+    whisper_best_of: int = int(os.getenv("ROBOTOS_WHISPER_BEST_OF", "1"))
+    whisper_vad_filter: bool = os.getenv("ROBOTOS_WHISPER_VAD_FILTER", "0").strip().lower() in {"1", "true", "yes", "on"}
+    preload_models: bool = os.getenv("ROBOTOS_PRELOAD_MODELS", "1").strip().lower() in {"1", "true", "yes", "on"}
 
     ollama_model: str = os.getenv("ROBOTOS_OLLAMA_MODEL", "robot-greek")
     ollama_url: str = os.getenv("ROBOTOS_OLLAMA_URL", "http://127.0.0.1:11434")
     ollama_timeout_seconds: float = float(
         os.getenv("ROBOTOS_OLLAMA_TIMEOUT_SECONDS", "120")
     )
-    max_history: int = int(os.getenv("ROBOTOS_MAX_HISTORY", "10"))
+    max_history: int = int(os.getenv("ROBOTOS_MAX_HISTORY", "8"))
+    ollama_num_predict: int = int(os.getenv("ROBOTOS_OLLAMA_NUM_PREDICT", "80"))
+    ollama_num_ctx: int = int(os.getenv("ROBOTOS_OLLAMA_NUM_CTX", "4096"))
 
     tts_engine: str = os.getenv("ROBOTOS_TTS_ENGINE", "piper").strip().lower()
     chatterbox_device: str = os.getenv("ROBOTOS_CHATTERBOX_DEVICE", "cuda")
@@ -51,7 +57,7 @@ class ServerConfig:
             "Είσαι το RobotOS, ένα φιλικό ελληνόφωνο ρομπότ-βοηθός. "
             "Απαντάς αποκλειστικά στα ελληνικά και λαμβάνεις υπόψη το προηγούμενο "
             "ιστορικό της συζήτησης. Δίνεις σύντομες, φυσικές και ακριβείς απαντήσεις "
-            "κατάλληλες για εκφώνηση. Δεν χρησιμοποιείς markdown, λίστες ή emoji, "
+            "κατάλληλες για εκφώνηση, συνήθως σε μία ή δύο σύντομες προτάσεις. Δεν χρησιμοποιείς markdown, λίστες ή emoji, "
             "δεν επαναλαμβάνεις την ερώτηση και δεν επινοείς πληροφορίες όταν δεν γνωρίζεις."
         ),
     )
