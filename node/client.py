@@ -233,6 +233,7 @@ class NodeClient:
             ping_interval=20,
             ping_timeout=20,
             close_timeout=5,
+            max_size=16 * 1024 * 1024,
         ) as websocket:
             self.websocket = websocket
 

@@ -149,7 +149,12 @@ class BrainServer:
 
         logger.info("Starting WebSocket server on ws://{}:{}", CONFIG.host, CONFIG.port)
         try:
-            async with serve(self.handle_client, CONFIG.host, CONFIG.port):
+            async with serve(
+                self.handle_client,
+                CONFIG.host,
+                CONFIG.port,
+                max_size=16 * 1024 * 1024,
+            ):
                 logger.info("Waiting for RobotOS nodes...")
                 await asyncio.Future()
         finally:
