@@ -14,6 +14,7 @@ from brain.connection_manager import ConnectionManager
 from brain.handlers import (
     create_audio_handlers,
     create_speech_handler,
+    create_speech_interrupt_handler,
     handle_heartbeat,
     handle_hello,
 )
@@ -89,6 +90,10 @@ class BrainServer:
         router.register(MessageType.HELLO, handle_hello)
         router.register(MessageType.HEARTBEAT, handle_heartbeat)
         router.register(MessageType.SPEECH, create_speech_handler(self.speech))
+        router.register(
+            MessageType.SPEECH_INTERRUPT,
+            create_speech_interrupt_handler(self.speech),
+        )
         audio_start, audio_chunk, audio_end = create_audio_handlers(
             self.audio_buffers,
             self.whisper,

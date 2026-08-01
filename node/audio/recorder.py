@@ -71,8 +71,16 @@ class AudioRecorder:
         self._sounddevice = sd
         return sd
 
-    def _record_sync(self) -> bytes:
-        if self.paused:
+    def _record_sync(
+        self,
+        *,
+        allow_while_paused: bool = False,
+        speech_threshold: float | None = None,
+        silence_ms: int | None = None,
+        pre_buffer_ms: int | None = None,
+        max_utterance_seconds: float | None = None,
+    ) -> bytes:
+        if self.paused and not allow_while_paused:
             return b""
 
         try:
@@ -83,9 +91,17 @@ class AudioRecorder:
         sd = self._get_sounddevice()
         cfg = self.config
         blocksize = max(1, int(cfg.sample_rate * cfg.block_ms / 1000))
-        silence_blocks = max(1, cfg.silence_ms // cfg.block_ms)
-        pre_blocks = max(1, cfg.pre_buffer_ms // cfg.block_ms)
-        max_blocks = max(1, int(cfg.max_utterance_seconds * 1000 / cfg.block_ms))
+        threshold = cfg.speech_threshold if speech_threshold is None else speech_threshold
+        end_silence_ms = cfg.silence_ms if silence_ms is None else silence_ms
+        lead_ms = cfg.pre_buffer_ms if pre_buffer_ms is None else pre_buffer_ms
+        max_seconds = (
+            cfg.max_utterance_seconds
+            if max_utterance_seconds is None
+            else max_utterance_seconds
+        )
+        silence_blocks = max(1, end_silence_ms // cfg.block_ms)
+        pre_blocks = max(1, lead_ms // cfg.block_ms)
+        max_blocks = max(1, int(max_seconds * 1000 / cfg.block_ms))
 
         pre_buffer: list[bytes] = []
         captured: list[bytes] = []
@@ -100,12 +116,12 @@ class AudioRecorder:
                 blocksize=blocksize,
             ) as stream:
                 for _ in range(max_blocks):
-                    if self.paused:
+                    if self.paused and not allow_while_paused:
                         return b""
 
                     data, overflowed = stream.read(blocksize)
 
-                    if self.paused:
+                    if self.paused and not allow_while_paused:
                         return b""
                     if overflowed:
                         continue
@@ -117,14 +133,14 @@ class AudioRecorder:
                     if not speaking:
                         pre_buffer.append(block)
                         pre_buffer = pre_buffer[-pre_blocks:]
-                        if rms >= cfg.speech_threshold:
+                        if rms >= threshold:
                             speaking = True
                             captured.extend(pre_buffer)
                             pre_buffer.clear()
                         continue
 
                     captured.append(block)
-                    if rms < cfg.speech_threshold:
+                    if rms < threshold:
                         silent_count += 1
                         if silent_count >= silence_blocks:
                             break
@@ -133,9 +149,28 @@ class AudioRecorder:
         except Exception as exc:
             raise AudioRecorderError(f"Αποτυχία καταγραφής μικροφώνου: {exc}") from exc
 
-        if self.paused:
+        if self.paused and not allow_while_paused:
             return b""
         return b"".join(captured)
 
     async def record_utterance(self) -> bytes:
         return await asyncio.to_thread(self._record_sync)
+
+    async def record_barge_in(
+        self,
+        *,
+        speech_threshold: float,
+        silence_ms: int,
+        pre_buffer_ms: int,
+        max_utterance_seconds: float,
+    ) -> bytes:
+        """Listen for a louder user utterance while robot audio is playing."""
+
+        return await asyncio.to_thread(
+            self._record_sync,
+            allow_while_paused=True,
+            speech_threshold=speech_threshold,
+            silence_ms=silence_ms,
+            pre_buffer_ms=pre_buffer_ms,
+            max_utterance_seconds=max_utterance_seconds,
+        )

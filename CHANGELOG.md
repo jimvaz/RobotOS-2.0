@@ -1,3 +1,13 @@
+
+## B2.5 — Interruptible Speech / Barge-In
+
+- Added `speech_interrupt` protocol event.
+- Node monitors for a louder, sustained user utterance while robot audio is playing.
+- Active streamed or legacy playback is stopped immediately on barge-in.
+- The captured interrupting utterance is sent directly to the Brain.
+- Added configurable grace, threshold, silence, pre-buffer, and maximum capture values.
+- Brain can cancel an outgoing stream when a Node takes the turn.
+- Version `2.0.0-beta.6`.
 # Changelog
 
 ## 2.0.0-beta.5 — B2.4 Low-Latency Voice Pipeline

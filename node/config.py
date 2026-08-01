@@ -65,6 +65,13 @@ class NodeConfig:
     microphone_resume_delay: float = float(os.getenv("ROBOTOS_MIC_RESUME_DELAY", "0.25"))
     language: str = os.getenv("ROBOTOS_LANGUAGE", "el")
 
+    barge_in_enabled: bool = _env_bool("ROBOTOS_BARGE_IN_ENABLED", True)
+    barge_in_threshold: float = float(os.getenv("ROBOTOS_BARGE_IN_THRESHOLD", "0.06"))
+    barge_in_grace_ms: int = int(os.getenv("ROBOTOS_BARGE_IN_GRACE_MS", "650"))
+    barge_in_silence_ms: int = int(os.getenv("ROBOTOS_BARGE_IN_SILENCE_MS", "350"))
+    barge_in_pre_buffer_ms: int = int(os.getenv("ROBOTOS_BARGE_IN_PRE_BUFFER_MS", "180"))
+    barge_in_max_seconds: float = float(os.getenv("ROBOTOS_BARGE_IN_MAX_SECONDS", "6"))
+
     @property
     def brain_uri(self) -> str:
         return f"ws://{self.brain_host}:{self.brain_port}"

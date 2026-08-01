@@ -216,3 +216,19 @@ ROBOTOS_OLLAMA_NUM_CTX=4096
 ```
 
 Brain logs now include `stt`, `LLM latency`, `Speech latency`, and total pipeline timing.
+
+
+## Barge-in (B2.5)
+
+Barge-in is enabled by default. While the robot is speaking, the Node uses a stricter microphone threshold to detect a real user interruption, stops playback, and sends the interrupting utterance to the Brain.
+
+```bash
+export ROBOTOS_BARGE_IN_ENABLED=1
+export ROBOTOS_BARGE_IN_THRESHOLD=0.06
+export ROBOTOS_BARGE_IN_GRACE_MS=650
+export ROBOTOS_BARGE_IN_SILENCE_MS=350
+export ROBOTOS_BARGE_IN_PRE_BUFFER_MS=180
+export ROBOTOS_BARGE_IN_MAX_SECONDS=6
+```
+
+Raise `ROBOTOS_BARGE_IN_THRESHOLD` if the robot interrupts itself; lower it if it does not hear a user speaking over playback.

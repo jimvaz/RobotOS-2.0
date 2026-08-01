@@ -29,6 +29,12 @@ class SpeechService:
         self._backend = backend
         self._fallback_to_node = fallback_to_node
         self._chunk_size = chunk_size
+        self._cancelled: set[ServerConnection] = set()
+
+    def cancel_for(self, websocket: ServerConnection) -> None:
+        """Request cancellation of the current outgoing stream for one Node."""
+
+        self._cancelled.add(websocket)
 
     async def say(
         self,
@@ -80,6 +86,7 @@ class SpeechService:
         audio: bytes,
         text: str,
     ) -> None:
+        self._cancelled.discard(websocket)
         start = AudioPlaybackStartPayload.create(
             total_bytes=len(audio),
             chunk_size=self._chunk_size,
@@ -90,6 +97,10 @@ class SpeechService:
 
         chunks = 0
         for sequence, offset in enumerate(range(0, len(audio), self._chunk_size)):
+            if websocket in self._cancelled:
+                logger.info("Audio stream cancelled before chunk {}: id={}", sequence, start.stream_id)
+                self._cancelled.discard(websocket)
+                return
             chunk = audio[offset : offset + self._chunk_size]
             await websocket.send(
                 AudioPlaybackChunkPayload(

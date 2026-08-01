@@ -15,6 +15,7 @@ class MessageType(str, Enum):
     AUDIO_PLAYBACK_START = "audio_playback_start"
     AUDIO_PLAYBACK_CHUNK = "audio_playback_chunk"
     AUDIO_PLAYBACK_END = "audio_playback_end"
+    SPEECH_INTERRUPT = "speech_interrupt"
     TRANSCRIPT = "transcript"
     ACTION = "action"
     EVENT = "event"

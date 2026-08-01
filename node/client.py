@@ -17,6 +17,7 @@ from node.handlers.audio_playback import create_audio_playback_handler, create_a
 from node.router import NodeMessageRouter
 from node.tts import PiperTTS, SpeechQueue, VoiceEngine
 from node.tts.audio_player import AudioPlaybackQueue
+from shared.barge_in import SpeechInterruptPayload
 from shared.models import Message
 from shared.protocol import MessageType
 from shared.version import PROTOCOL_VERSION, ROBOTOS_VERSION
@@ -27,6 +28,8 @@ class NodeClient:
 
     def __init__(self) -> None:
         self.running = True
+        self._barge_in_task: asyncio.Task[None] | None = None
+        self._barge_in_capture_active = False
         self.websocket: ClientConnection | None = None
         self.router = NodeMessageRouter()
         self.piper = PiperTTS(
@@ -81,18 +84,74 @@ class NodeClient:
         self.router.register(MessageType.TRANSCRIPT, handle_transcript)
 
     async def _pause_microphone_for_speech(self) -> None:
-        """Stop capture before Piper playback begins."""
+        """Pause normal capture and start the optional barge-in monitor."""
 
         if not self.audio_recorder.paused:
             self.audio_recorder.pause()
             logger.info("MIC paused")
+        if (
+            CONFIG.barge_in_enabled
+            and CONFIG.microphone_enabled
+            and (self._barge_in_task is None or self._barge_in_task.done())
+        ):
+            self._barge_in_task = asyncio.create_task(
+                self._barge_in_loop(), name="node-barge-in"
+            )
 
     async def _resume_microphone_after_speech(self) -> None:
-        """Resume capture after playback and a short acoustic settling delay."""
+        """Resume normal capture after playback unless barge-in owns the mic."""
 
+        current = asyncio.current_task()
+        task = self._barge_in_task
+        if task is not None and task is not current and not task.done():
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+        if self._barge_in_capture_active:
+            return
         await asyncio.sleep(CONFIG.microphone_resume_delay)
         self.audio_recorder.resume()
         logger.info("MIC resumed")
+
+    async def _barge_in_loop(self) -> None:
+        """Detect a user utterance during playback and take the conversational turn."""
+
+        await asyncio.sleep(CONFIG.barge_in_grace_ms / 1000)
+        while self.running and self.audio_playback_queue.is_playing:
+            pcm = await self.audio_recorder.record_barge_in(
+                speech_threshold=CONFIG.barge_in_threshold,
+                silence_ms=CONFIG.barge_in_silence_ms,
+                pre_buffer_ms=CONFIG.barge_in_pre_buffer_ms,
+                max_utterance_seconds=CONFIG.barge_in_max_seconds,
+            )
+            if not pcm:
+                if self.audio_playback_queue.is_playing:
+                    await asyncio.sleep(0.05)
+                    continue
+                return
+
+            self._barge_in_capture_active = True
+            logger.info("Barge-in detected: bytes={}", len(pcm))
+            try:
+                await self.send_message(SpeechInterruptPayload().to_message())
+                await self.audio_playback_queue.interrupt("user barge-in")
+                session_id = await self.audio_streamer.stream(
+                    pcm,
+                    sample_rate=CONFIG.microphone_sample_rate,
+                    language=CONFIG.language,
+                )
+                logger.info(
+                    "Barge-in utterance sent: session={}, bytes={}",
+                    session_id,
+                    len(pcm),
+                )
+            except (ConnectionClosed, RuntimeError):
+                return
+            finally:
+                self._barge_in_capture_active = False
+                self.audio_recorder.resume()
+                logger.info("MIC resumed after barge-in")
+            return
 
     async def send_message(self, message: Message) -> None:
         """Send a validated RobotOS protocol message."""
@@ -207,6 +266,8 @@ class NodeClient:
         while self.running and self.websocket is not None:
             try:
                 await self.audio_recorder.wait_until_resumed()
+                while self._barge_in_capture_active:
+                    await asyncio.sleep(0.02)
                 if not self.running or self.websocket is None:
                     return
                 pcm = await self.audio_recorder.record_utterance()
@@ -330,6 +391,10 @@ class NodeClient:
         """Stop network activity and finish queued speech."""
 
         self.running = False
+        if self._barge_in_task is not None:
+            self._barge_in_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._barge_in_task
         await self.speech_queue.stop(drain=True)
         await self.audio_playback_queue.stop()
 

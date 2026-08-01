@@ -41,6 +41,16 @@ class AudioPlaybackQueue:
         self.worker: asyncio.Task[None] | None = None
         self._stream: _ActiveStream | None = None
         self._stream_lock = asyncio.Lock()
+        self._legacy_process: asyncio.subprocess.Process | None = None
+
+    @property
+    def is_playing(self) -> bool:
+        stream_playing = self._stream is not None
+        legacy_playing = (
+            self._legacy_process is not None
+            and self._legacy_process.returncode is None
+        )
+        return stream_playing or legacy_playing
 
     def start(self) -> None:
         if self.worker is None or self.worker.done():
@@ -154,6 +164,24 @@ class AudioPlaybackQueue:
         if self.on_end:
             await self.on_end()
 
+    async def interrupt(self, reason: str = "user speech") -> None:
+        """Immediately stop active playback and discard queued legacy audio."""
+
+        await self.abort_stream(reason)
+        process = self._legacy_process
+        if process is not None and process.returncode is None:
+            logger.warning("[AUDIO] interrupted: {}", reason)
+            process.terminate()
+            with suppress(asyncio.TimeoutError):
+                await asyncio.wait_for(process.wait(), timeout=2)
+        while True:
+            try:
+                self.queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+            else:
+                self.queue.task_done()
+
     async def stop(self) -> None:
         await self.abort_stream("Node stopping")
         await self.queue.join()
@@ -180,6 +208,7 @@ class AudioPlaybackQueue:
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                 )
+                self._legacy_process = process
                 _, stderr = await process.communicate()
                 if process.returncode:
                     raise RuntimeError(stderr.decode(errors="replace"))
@@ -187,6 +216,7 @@ class AudioPlaybackQueue:
             except Exception:
                 logger.exception("Brain audio playback failed")
             finally:
+                self._legacy_process = None
                 if path:
                     path.unlink(missing_ok=True)
                 if self.on_end:
