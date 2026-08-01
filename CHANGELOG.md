@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.0.0-beta.4 — B2.3
+
+- Added streamed Brain audio protocol: `audio_playback_start`, `audio_playback_chunk`, and `audio_playback_end`.
+- Replaced one large Base64 WAV frame with configurable 48 KiB chunks.
+- Added Raspberry Pi stdin playback so audio begins while chunks are still arriving.
+- Added strict stream IDs, sequence ordering, byte counts, and chunk-count validation.
+- Added stream cleanup on disconnect, replacement, errors, and Node shutdown.
+- Retained legacy `audio_playback` compatibility and Piper fallback.
+- Added regression coverage for 10 MiB generated audio without oversized WebSocket frames.
+- Removed generated test WAV files from the release archive.
+
 ## 2.0.0-alpha.5 — B1.9
 
 - Added bounded per-node short-term conversation memory.

@@ -49,7 +49,10 @@ class BrainServer:
         elif CONFIG.tts_engine != "piper":
             logger.warning("Unknown TTS engine %r; using Piper", CONFIG.tts_engine)
         self.speech = SpeechService(
-            self.connections, backend=tts_backend, fallback_to_node=CONFIG.tts_fallback_to_node
+            self.connections,
+            backend=tts_backend,
+            fallback_to_node=CONFIG.tts_fallback_to_node,
+            chunk_size=CONFIG.audio_playback_chunk_size,
         )
         logger.info("TTS engine configured: {}", CONFIG.tts_engine)
         self.audio_buffers = AudioBufferService(
@@ -153,7 +156,7 @@ class BrainServer:
                 self.handle_client,
                 CONFIG.host,
                 CONFIG.port,
-                max_size=16 * 1024 * 1024,
+                max_size=2 * 1024 * 1024,
             ):
                 logger.info("Waiting for RobotOS nodes...")
                 await asyncio.Future()

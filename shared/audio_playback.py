@@ -1,14 +1,19 @@
-"""Wire payload for Brain-generated WAV playback on a RobotOS Node."""
+"""Wire payloads for streamed Brain-generated audio playback on a RobotOS Node."""
 from __future__ import annotations
 
 import base64
 from dataclasses import dataclass
+from uuid import uuid4
+
 from pydantic import BaseModel, Field
+
 from shared.models import Message
 from shared.protocol import MessageType
 
 
 class AudioPlaybackModel(BaseModel):
+    """Legacy single-message WAV payload."""
+
     audio_base64: str = Field(min_length=1)
     format: str = "wav"
     text: str = ""
@@ -17,18 +22,23 @@ class AudioPlaybackModel(BaseModel):
 
 @dataclass(frozen=True, slots=True)
 class AudioPlaybackPayload:
+    """Legacy payload retained for backwards compatibility."""
+
     audio: bytes
     format: str = "wav"
     text: str = ""
     engine: str = "unknown"
 
     def to_message(self) -> Message:
-        return Message(type=MessageType.AUDIO_PLAYBACK, payload={
-            "audio_base64": base64.b64encode(self.audio).decode("ascii"),
-            "format": self.format,
-            "text": self.text,
-            "engine": self.engine,
-        })
+        return Message(
+            type=MessageType.AUDIO_PLAYBACK,
+            payload={
+                "audio_base64": base64.b64encode(self.audio).decode("ascii"),
+                "format": self.format,
+                "text": self.text,
+                "engine": self.engine,
+            },
+        )
 
     @classmethod
     def from_message(cls, message: Message) -> "AudioPlaybackPayload":
@@ -42,3 +52,120 @@ class AudioPlaybackPayload:
         if not audio:
             raise ValueError("Empty audio payload")
         return cls(audio=audio, format=model.format, text=model.text, engine=model.engine)
+
+
+class AudioPlaybackStartModel(BaseModel):
+    stream_id: str = Field(min_length=1)
+    format: str = "wav"
+    text: str = ""
+    engine: str = "unknown"
+    total_bytes: int = Field(ge=0)
+    chunk_size: int = Field(gt=0)
+
+
+class AudioPlaybackChunkModel(BaseModel):
+    stream_id: str = Field(min_length=1)
+    sequence: int = Field(ge=0)
+    audio_base64: str = Field(min_length=1)
+
+
+class AudioPlaybackEndModel(BaseModel):
+    stream_id: str = Field(min_length=1)
+    chunks: int = Field(ge=0)
+    total_bytes: int = Field(ge=0)
+
+
+@dataclass(frozen=True, slots=True)
+class AudioPlaybackStartPayload:
+    stream_id: str
+    total_bytes: int
+    chunk_size: int
+    format: str = "wav"
+    text: str = ""
+    engine: str = "unknown"
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        total_bytes: int,
+        chunk_size: int,
+        format: str = "wav",
+        text: str = "",
+        engine: str = "unknown",
+    ) -> "AudioPlaybackStartPayload":
+        return cls(
+            stream_id=str(uuid4()),
+            total_bytes=total_bytes,
+            chunk_size=chunk_size,
+            format=format,
+            text=text,
+            engine=engine,
+        )
+
+    def to_message(self) -> Message:
+        return Message(type=MessageType.AUDIO_PLAYBACK_START, payload={
+            "stream_id": self.stream_id,
+            "format": self.format,
+            "text": self.text,
+            "engine": self.engine,
+            "total_bytes": self.total_bytes,
+            "chunk_size": self.chunk_size,
+        })
+
+    @classmethod
+    def from_message(cls, message: Message) -> "AudioPlaybackStartPayload":
+        if message.type != MessageType.AUDIO_PLAYBACK_START:
+            raise ValueError("Expected AUDIO_PLAYBACK_START message")
+        model = AudioPlaybackStartModel.model_validate(message.payload)
+        return cls(**model.model_dump())
+
+
+@dataclass(frozen=True, slots=True)
+class AudioPlaybackChunkPayload:
+    stream_id: str
+    sequence: int
+    audio: bytes
+
+    def to_message(self) -> Message:
+        if not self.audio:
+            raise ValueError("Audio chunk cannot be empty")
+        return Message(type=MessageType.AUDIO_PLAYBACK_CHUNK, payload={
+            "stream_id": self.stream_id,
+            "sequence": self.sequence,
+            "audio_base64": base64.b64encode(self.audio).decode("ascii"),
+        })
+
+    @classmethod
+    def from_message(cls, message: Message) -> "AudioPlaybackChunkPayload":
+        if message.type != MessageType.AUDIO_PLAYBACK_CHUNK:
+            raise ValueError("Expected AUDIO_PLAYBACK_CHUNK message")
+        model = AudioPlaybackChunkModel.model_validate(message.payload)
+        try:
+            audio = base64.b64decode(model.audio_base64, validate=True)
+        except Exception as exc:
+            raise ValueError("Invalid base64 audio chunk") from exc
+        if not audio:
+            raise ValueError("Empty audio chunk")
+        return cls(stream_id=model.stream_id, sequence=model.sequence, audio=audio)
+
+
+@dataclass(frozen=True, slots=True)
+class AudioPlaybackEndPayload:
+    stream_id: str
+    chunks: int
+    total_bytes: int
+
+    def to_message(self) -> Message:
+        return Message(type=MessageType.AUDIO_PLAYBACK_END, payload={
+            "stream_id": self.stream_id,
+            "chunks": self.chunks,
+            "total_bytes": self.total_bytes,
+        })
+
+    @classmethod
+    def from_message(cls, message: Message) -> "AudioPlaybackEndPayload":
+        if message.type != MessageType.AUDIO_PLAYBACK_END:
+            raise ValueError("Expected AUDIO_PLAYBACK_END message")
+        model = AudioPlaybackEndModel.model_validate(message.payload)
+        return cls(**model.model_dump())

@@ -1,3 +1,16 @@
+# RobotOS 2.0 B2.3 — Streaming Audio Engine
+
+B2.3 fixes long Chatterbox responses disconnecting the Raspberry Pi with WebSocket code 1009. Generated WAV data is now transported as small ordered chunks and played through `aplay` stdin on the Node.
+
+Expected Node logs:
+
+```text
+[AUDIO STREAM] started: id=..., engine=chatterbox, bytes=...
+[AUDIO STREAM] finished: id=..., chunks=..., bytes=...
+```
+
+The microphone remains paused for the complete playback lifecycle and resumes after the configured acoustic settling delay.
+
 # RobotOS 2.0 B2.2 — Isolated Chatterbox Worker
 
 B2.2 fixes the Windows CUDA/cuDNN collision observed when faster-whisper and Chatterbox ran inside the same Python process.

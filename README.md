@@ -1,3 +1,24 @@
+# RobotOS 2.0 B2.3 — Streaming Audio Transport
+
+B2.3 replaces the single large `audio_playback` WebSocket frame with an ordered stream:
+
+```text
+audio_playback_start
+audio_playback_chunk (48 KiB raw audio)
+...
+audio_playback_end
+```
+
+The Raspberry Pi starts `aplay` when the start message arrives and feeds WAV bytes to its stdin as chunks arrive. This prevents WebSocket code 1009 disconnects for long Chatterbox replies, reduces peak memory use, and prepares the playback path for mouth/LED amplitude sync. The legacy `audio_playback` message remains supported for compatibility.
+
+Optional Brain setting:
+
+```text
+ROBOTOS_AUDIO_CHUNK_SIZE=49152
+```
+
+The default keeps every Base64 WebSocket frame well below 100 KiB. Both Brain and Node retain a 2 MiB safety limit.
+
 # RobotOS 2.0
 
 RobotOS separates the AI Brain, Raspberry Pi Node, and Arduino hardware controller.

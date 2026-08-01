@@ -13,7 +13,7 @@ from websockets.exceptions import ConnectionClosed
 from node.audio import AudioRecorder, AudioRecorderError, AudioStreamer, RecorderConfig
 from node.config import CONFIG
 from node.handlers import create_speech_handler, handle_transcript
-from node.handlers.audio_playback import create_audio_playback_handler
+from node.handlers.audio_playback import create_audio_playback_handler, create_audio_stream_handlers
 from node.router import NodeMessageRouter
 from node.tts import PiperTTS, SpeechQueue, VoiceEngine
 from node.tts.audio_player import AudioPlaybackQueue
@@ -72,6 +72,12 @@ class NodeClient:
             MessageType.AUDIO_PLAYBACK,
             create_audio_playback_handler(self.audio_playback_queue),
         )
+        playback_start, playback_chunk, playback_end = create_audio_stream_handlers(
+            self.audio_playback_queue
+        )
+        self.router.register(MessageType.AUDIO_PLAYBACK_START, playback_start)
+        self.router.register(MessageType.AUDIO_PLAYBACK_CHUNK, playback_chunk)
+        self.router.register(MessageType.AUDIO_PLAYBACK_END, playback_end)
         self.router.register(MessageType.TRANSCRIPT, handle_transcript)
 
     async def _pause_microphone_for_speech(self) -> None:
@@ -233,7 +239,7 @@ class NodeClient:
             ping_interval=20,
             ping_timeout=20,
             close_timeout=5,
-            max_size=16 * 1024 * 1024,
+            max_size=2 * 1024 * 1024,
         ) as websocket:
             self.websocket = websocket
 
@@ -278,6 +284,7 @@ class NodeClient:
                     with suppress(asyncio.CancelledError):
                         await task
 
+                await self.audio_playback_queue.abort_stream("Brain connection ended")
                 self.websocket = None
 
     async def start(self) -> None:

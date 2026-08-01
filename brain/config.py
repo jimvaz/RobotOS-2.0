@@ -34,6 +34,7 @@ class ServerConfig:
     chatterbox_startup_timeout: float = float(os.getenv("ROBOTOS_CHATTERBOX_STARTUP_TIMEOUT", "180"))
     chatterbox_synthesis_timeout: float = float(os.getenv("ROBOTOS_CHATTERBOX_SYNTHESIS_TIMEOUT", "180"))
     tts_fallback_to_node: bool = os.getenv("ROBOTOS_TTS_FALLBACK", "1").strip().lower() in {"1", "true", "yes", "on"}
+    audio_playback_chunk_size: int = int(os.getenv("ROBOTOS_AUDIO_CHUNK_SIZE", str(48 * 1024)))
     transcript_dedup_seconds: float = float(
         os.getenv("ROBOTOS_TRANSCRIPT_DEDUP_SECONDS", "3")
     )
