@@ -47,10 +47,15 @@ class SpeechService:
         audio: bytes | None = None
         if self._backend is not None:
             try:
-                audio = await self._backend.synthesize(clean)
+                try:
+                    audio = await self._backend.synthesize(clean, emotion=emotion)
+                except TypeError:
+                    # Compatibility with custom/legacy backends that only accept text.
+                    audio = await self._backend.synthesize(clean)
                 logger.info(
-                    "High-quality TTS generated: engine={}, bytes={}",
+                    "High-quality TTS generated: engine={}, emotion={}, bytes={}",
                     self._backend.name,
+                    emotion or "neutral",
                     len(audio),
                 )
             except TTSError as exc:

@@ -232,3 +232,11 @@ export ROBOTOS_BARGE_IN_MAX_SECONDS=6
 ```
 
 Raise `ROBOTOS_BARGE_IN_THRESHOLD` if the robot interrupts itself; lower it if it does not hear a user speaking over playback.
+
+## B2.6 Persona and Emotion Engine
+
+RobotOS now has a canonical character definition in `CHARACTER_BIBLE.md`. The Brain automatically selects one of six speaking styles without making an additional LLM request:
+
+`neutral`, `friendly`, `thinking`, `curious`, `excited`, `funny`.
+
+The style changes Chatterbox expression only; speaking speed remains normal. Disable the engine with `ROBOTOS_EMOTION_ENGINE=0`.

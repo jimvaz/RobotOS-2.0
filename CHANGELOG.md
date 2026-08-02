@@ -99,3 +99,11 @@
 - Prevented Greek synthesis text from being decoded through the active Windows console code page.
 - Added strict string validation and NFC normalization before Chatterbox tokenization.
 - Forced UTF-8 mode in the worker environment and added regression tests.
+
+## 2.0.0-beta.7 — B2.6 Persona & Emotion Engine
+
+- Added the canonical RobotOS Character Bible and persona prompt.
+- Added deterministic low-latency emotion classification.
+- Added neutral, friendly, thinking, curious, excited, and funny voice styles.
+- Chatterbox now receives dynamic `exaggeration` and `cfg_weight` per response.
+- Preserved normal speaking speed and the existing low-latency pipeline.

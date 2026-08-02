@@ -55,3 +55,15 @@ ROBOTOS_CHATTERBOX_SYNTHESIS_TIMEOUT=180
 ```
 
 All B2.1 settings remain supported. Piper remains the automatic Node fallback.
+
+## RobotOS-2.0 B2.6 — Persona & Emotion Engine
+
+This release gives RobotOS a stable Greek-speaking character and dynamically changes the expression of the same Chatterbox voice according to the response. The engine is deterministic and adds no extra LLM request, preserving latency.
+
+Enable or disable it with:
+
+```text
+ROBOTOS_EMOTION_ENGINE=1
+```
+
+The official character definition is stored in `CHARACTER_BIBLE.md`.

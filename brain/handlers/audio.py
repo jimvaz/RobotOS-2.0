@@ -11,6 +11,7 @@ from websockets.asyncio.server import ServerConnection
 
 from brain.services.audio_buffer import AudioBufferService, AudioSessionError
 from brain.services.conversation import ConversationLogger, ConversationMemory, TranscriptFilter
+from brain.services.emotion import EmotionService
 from brain.services.llm import LLMError, LLMService
 from brain.services.speech import SpeechService
 from brain.services.whisper import WhisperError, WhisperService
@@ -36,6 +37,7 @@ def create_audio_handlers(
     memory: ConversationMemory | None = None,
     transcript_filter: TranscriptFilter | None = None,
     conversation_logger: ConversationLogger | None = None,
+    emotion_service: EmotionService | None = None,
 ) -> tuple[AudioHandler, AudioHandler, AudioHandler]:
     async def handle_start(websocket: ServerConnection, message: Message) -> None:
         try:
@@ -99,8 +101,17 @@ def create_audio_handlers(
                     llm_result.text,
                 )
                 logger.info("LLM latency: {:.2f}s", llm_seconds)
+                emotion = (
+                    emotion_service.classify(transcript_text, llm_result.text)
+                    if emotion_service is not None
+                    else None
+                )
+                logger.info("Speech emotion selected: {}", emotion or "neutral")
                 tts_started = perf_counter()
-                await speech.say(llm_result.text)
+                await speech.say(
+                    llm_result.text,
+                    emotion=emotion.value if emotion is not None else None,
+                )
                 tts_seconds = perf_counter() - tts_started
                 logger.info("Speech latency: {:.2f}s; total pipeline: {:.2f}s", tts_seconds, perf_counter() - pipeline_started)
                 if memory is not None:

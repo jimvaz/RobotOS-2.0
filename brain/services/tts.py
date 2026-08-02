@@ -16,6 +16,8 @@ from uuid import uuid4
 
 from loguru import logger
 
+from shared.emotions import parse_emotion, VOICE_STYLES
+
 
 class TTSError(RuntimeError):
     """Raised when a TTS backend cannot synthesize audio."""
@@ -24,7 +26,7 @@ class TTSError(RuntimeError):
 class TTSBackend(Protocol):
     name: str
 
-    async def synthesize(self, text: str) -> bytes: ...
+    async def synthesize(self, text: str, *, emotion: str | None = None) -> bytes: ...
 
     async def close(self) -> None: ...
 
@@ -173,7 +175,7 @@ class ChatterboxWorkerTTS:
         async with self._lock:
             await self._start_worker()
 
-    async def synthesize(self, text: str) -> bytes:
+    async def synthesize(self, text: str, *, emotion: str | None = None) -> bytes:
         clean = text.strip()
         if not clean:
             raise TTSError("Δεν γίνεται σύνθεση κενού κειμένου")
@@ -186,11 +188,16 @@ class ChatterboxWorkerTTS:
 
             request_id = str(uuid4())
             output_path = Path(tempfile.gettempdir()) / f"robotos-tts-{request_id}.wav"
+            selected_emotion = parse_emotion(emotion)
+            style = VOICE_STYLES[selected_emotion]
             request = {
                 "id": request_id,
                 "command": "synthesize",
                 "text": clean,
                 "output_path": str(output_path),
+                "emotion": selected_emotion.value,
+                "exaggeration": style.exaggeration,
+                "cfg_weight": style.cfg_weight,
             }
             try:
                 self._process.stdin.write((json.dumps(request, ensure_ascii=False) + "\n").encode("utf-8"))

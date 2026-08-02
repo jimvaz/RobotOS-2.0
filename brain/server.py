@@ -23,6 +23,7 @@ from brain.services import (
     AudioBufferService,
     ConversationLogger,
     ConversationMemory,
+    EmotionService,
     LLMService,
     SpeechService,
     TranscriptFilter,
@@ -73,6 +74,7 @@ class BrainServer:
             similarity_threshold=CONFIG.transcript_similarity_threshold,
         )
         self.conversation_logger = ConversationLogger(CONFIG.conversation_log_path)
+        self.emotion = EmotionService() if CONFIG.emotion_engine_enabled else None
         self.llm = LLMService(
             model=CONFIG.ollama_model,
             base_url=CONFIG.ollama_url,
@@ -102,6 +104,7 @@ class BrainServer:
             self.memory,
             self.transcript_filter,
             self.conversation_logger,
+            self.emotion,
         )
         router.register(MessageType.AUDIO_START, audio_start)
         router.register(MessageType.AUDIO_CHUNK, audio_chunk)

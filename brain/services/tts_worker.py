@@ -76,7 +76,11 @@ def main() -> int:
         try:
             text = extract_text(request)
             output_path = Path(str(request["output_path"]))
-            kwargs: dict[str, str] = {"language_id": args.language}
+            kwargs: dict[str, object] = {
+                "language_id": args.language,
+                "exaggeration": float(request.get("exaggeration", 0.58)),
+                "cfg_weight": float(request.get("cfg_weight", 0.38)),
+            }
             if args.reference_audio:
                 reference = Path(args.reference_audio)
                 if not reference.is_file():

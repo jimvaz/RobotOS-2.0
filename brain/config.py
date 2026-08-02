@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
+from brain.persona import CHARACTER_SYSTEM_PROMPT
+
 
 @dataclass(frozen=True, slots=True)
 class ServerConfig:
@@ -40,6 +42,7 @@ class ServerConfig:
     chatterbox_startup_timeout: float = float(os.getenv("ROBOTOS_CHATTERBOX_STARTUP_TIMEOUT", "180"))
     chatterbox_synthesis_timeout: float = float(os.getenv("ROBOTOS_CHATTERBOX_SYNTHESIS_TIMEOUT", "180"))
     tts_fallback_to_node: bool = os.getenv("ROBOTOS_TTS_FALLBACK", "1").strip().lower() in {"1", "true", "yes", "on"}
+    emotion_engine_enabled: bool = os.getenv("ROBOTOS_EMOTION_ENGINE", "1").strip().lower() in {"1", "true", "yes", "on"}
     audio_playback_chunk_size: int = int(os.getenv("ROBOTOS_AUDIO_CHUNK_SIZE", str(48 * 1024)))
     transcript_dedup_seconds: float = float(
         os.getenv("ROBOTOS_TRANSCRIPT_DEDUP_SECONDS", "3")
@@ -53,13 +56,7 @@ class ServerConfig:
 
     system_prompt: str = os.getenv(
         "ROBOTOS_SYSTEM_PROMPT",
-        (
-            "Είσαι το RobotOS, ένα φιλικό ελληνόφωνο ρομπότ-βοηθός. "
-            "Απαντάς αποκλειστικά στα ελληνικά και λαμβάνεις υπόψη το προηγούμενο "
-            "ιστορικό της συζήτησης. Δίνεις σύντομες, φυσικές και ακριβείς απαντήσεις "
-            "κατάλληλες για εκφώνηση, συνήθως σε μία ή δύο σύντομες προτάσεις. Δεν χρησιμοποιείς markdown, λίστες ή emoji, "
-            "δεν επαναλαμβάνεις την ερώτηση και δεν επινοείς πληροφορίες όταν δεν γνωρίζεις."
-        ),
+        CHARACTER_SYSTEM_PROMPT,
     )
 
 
