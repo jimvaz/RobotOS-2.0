@@ -11,6 +11,7 @@ from websockets.asyncio.server import ServerConnection
 
 from brain.services.audio_buffer import AudioBufferService, AudioSessionError
 from brain.services.conversation import ConversationLogger, ConversationMemory, TranscriptFilter
+from brain.services.character import CharacterService
 from brain.services.emotion import EmotionService
 from brain.services.llm import LLMError, LLMService
 from brain.services.speech import SpeechService
@@ -38,6 +39,7 @@ def create_audio_handlers(
     transcript_filter: TranscriptFilter | None = None,
     conversation_logger: ConversationLogger | None = None,
     emotion_service: EmotionService | None = None,
+    character_service: CharacterService | None = None,
 ) -> tuple[AudioHandler, AudioHandler, AudioHandler]:
     async def handle_start(websocket: ServerConnection, message: Message) -> None:
         try:
@@ -123,37 +125,54 @@ def create_audio_handlers(
                 return
 
             if llm is not None and speech is not None:
-                history = memory.messages(websocket) if memory is not None else None
-                llm_started = perf_counter()
-                llm_result = await llm.generate(transcript_text, history=history)
-                llm_seconds = perf_counter() - llm_started
-                logger.info(
-                    "LLM response generated: model={}, text={!r}",
-                    llm_result.model,
-                    llm_result.text,
+                local_reply = (
+                    character_service.local_reply(transcript_text)
+                    if character_service is not None
+                    else None
                 )
-                logger.info("LLM latency: {:.2f}s", llm_seconds)
+                if local_reply is not None:
+                    reply_text = local_reply
+                    reply_model = "nobi-character"
+                    logger.info("Local character response selected: text={!r}", reply_text)
+                else:
+                    history = memory.messages(websocket) if memory is not None else None
+                    llm_started = perf_counter()
+                    llm_result = await llm.generate(transcript_text, history=history)
+                    llm_seconds = perf_counter() - llm_started
+                    reply_text = (
+                        character_service.polish(llm_result.text)
+                        if character_service is not None
+                        else llm_result.text
+                    )
+                    reply_model = llm_result.model
+                    logger.info(
+                        "LLM response generated: model={}, text={!r}",
+                        reply_model,
+                        reply_text,
+                    )
+                    logger.info("LLM latency: {:.2f}s", llm_seconds)
+
                 emotion = (
-                    emotion_service.classify(transcript_text, llm_result.text)
+                    emotion_service.classify(transcript_text, reply_text)
                     if emotion_service is not None
                     else None
                 )
                 logger.info("Speech emotion selected: {}", emotion or "neutral")
                 tts_started = perf_counter()
                 await speech.say(
-                    llm_result.text,
+                    reply_text,
                     emotion=emotion.value if emotion is not None else None,
                 )
                 tts_seconds = perf_counter() - tts_started
                 logger.info("Speech latency: {:.2f}s; total pipeline: {:.2f}s", tts_seconds, perf_counter() - pipeline_started)
                 if memory is not None:
-                    memory.add(websocket, transcript_text, llm_result.text)
+                    memory.add(websocket, transcript_text, reply_text)
                     logger.info("Conversation memory updated: turns={}", len(memory.messages(websocket)) // 2)
                 if conversation_logger is not None:
                     await conversation_logger.append(
                         transcript_text,
-                        llm_result.text,
-                        llm_result.model,
+                        reply_text,
+                        reply_model,
                     )
         except (ValidationError, ValueError, AudioSessionError) as exc:
             await websocket.send(_error("invalid_audio_end", str(exc), message.id).to_json())

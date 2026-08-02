@@ -21,6 +21,7 @@ from brain.handlers import (
 from brain.router import MessageRouter
 from brain.services import (
     AudioBufferService,
+    CharacterService,
     ConversationLogger,
     ConversationMemory,
     EmotionService,
@@ -78,6 +79,7 @@ class BrainServer:
             min_average_log_probability=CONFIG.whisper_min_avg_log_prob,
         )
         self.conversation_logger = ConversationLogger(CONFIG.conversation_log_path)
+        self.character = CharacterService()
         self.emotion = EmotionService() if CONFIG.emotion_engine_enabled else None
         self.llm = LLMService(
             model=CONFIG.ollama_model,
@@ -109,6 +111,7 @@ class BrainServer:
             self.transcript_filter,
             self.conversation_logger,
             self.emotion,
+            self.character,
         )
         router.register(MessageType.AUDIO_START, audio_start)
         router.register(MessageType.AUDIO_CHUNK, audio_chunk)

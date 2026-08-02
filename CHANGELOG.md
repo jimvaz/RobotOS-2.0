@@ -119,3 +119,12 @@
 - Supports both `ROBOTOS_MIC_RESUME_DELAY_MS` and `ROBOTOS_VAD_THRESHOLD`.
 - Disables barge-in by default until acoustic echo cancellation is available.
 - Introduces the Nobi branding and startup banner.
+
+## Nobi 2.7 — Character Update
+
+- Αφαιρέθηκε πλήρως το μότο του Nobi.
+- Ξαναγράφηκε η canonical persona για φυσικό, σύντομο ελληνικό λόγο.
+- Προστέθηκε CharacterService με εναλλασσόμενες τοπικές απαντήσεις για χαιρετισμούς, ευχαριστίες, αποχαιρετισμούς, έπαινο, ταυτότητα και «πώς είσαι».
+- Προστέθηκε φίλτρο που αφαιρεί τυπικές εκφράσεις chatbot από τις απαντήσεις του Ollama.
+- Οι κοινωνικές απαντήσεις παρακάμπτουν το Ollama για μικρότερη καθυστέρηση.
+- Ενημερώθηκε το Character Bible 2.0.

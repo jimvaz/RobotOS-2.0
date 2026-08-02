@@ -26,12 +26,12 @@ class VoiceStyle:
 
 
 VOICE_STYLES: dict[Emotion, VoiceStyle] = {
-    Emotion.NEUTRAL: VoiceStyle(exaggeration=0.58, cfg_weight=0.38),
-    Emotion.FRIENDLY: VoiceStyle(exaggeration=0.64, cfg_weight=0.36),
-    Emotion.THINKING: VoiceStyle(exaggeration=0.48, cfg_weight=0.44),
-    Emotion.CURIOUS: VoiceStyle(exaggeration=0.66, cfg_weight=0.34),
-    Emotion.EXCITED: VoiceStyle(exaggeration=0.74, cfg_weight=0.30),
-    Emotion.FUNNY: VoiceStyle(exaggeration=0.70, cfg_weight=0.32),
+    Emotion.NEUTRAL: VoiceStyle(exaggeration=0.64, cfg_weight=0.34),
+    Emotion.FRIENDLY: VoiceStyle(exaggeration=0.68, cfg_weight=0.32),
+    Emotion.THINKING: VoiceStyle(exaggeration=0.56, cfg_weight=0.38),
+    Emotion.CURIOUS: VoiceStyle(exaggeration=0.70, cfg_weight=0.30),
+    Emotion.EXCITED: VoiceStyle(exaggeration=0.74, cfg_weight=0.28),
+    Emotion.FUNNY: VoiceStyle(exaggeration=0.72, cfg_weight=0.29),
 }
 
 

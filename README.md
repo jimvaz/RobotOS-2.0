@@ -1,3 +1,7 @@
+# Nobi 2.7 — Character Update
+
+Powered by RobotOS 2.0.0-beta.8.
+
 # RobotOS 2.0 B2.3 — Streaming Audio Transport
 
 B2.3 replaces the single large `audio_playback` WebSocket frame with an ordered stream:

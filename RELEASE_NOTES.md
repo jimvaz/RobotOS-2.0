@@ -79,3 +79,7 @@ The official character definition is stored in `CHARACTER_BIBLE.md`.
 - Supports both `ROBOTOS_MIC_RESUME_DELAY_MS` and `ROBOTOS_VAD_THRESHOLD`.
 - Disables barge-in by default until acoustic echo cancellation is available.
 - Introduces the Nobi branding and startup banner.
+
+## Nobi 2.7 — Character Update
+
+Η έκδοση 2.7 επικεντρώνεται αποκλειστικά στον χαρακτήρα και στη φυσικότητα της συνομιλίας. Ο Nobi δεν έχει πλέον μότο. Διαθέτει γρήγορες, εναλλασσόμενες κοινωνικές απαντήσεις και αποφεύγει εκφράσεις που θυμίζουν chatbot ή γλωσσικό μοντέλο. Το audio, Whisper, WebSocket και Chatterbox pipeline παραμένουν αμετάβλητα.

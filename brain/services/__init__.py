@@ -2,6 +2,7 @@
 
 from .audio_buffer import AudioBufferService, AudioSessionError
 from .conversation import ConversationLogger, ConversationMemory, TranscriptFilter
+from .character import CharacterService
 from .emotion import EmotionService
 from .llm import LLMError, LLMResult, LLMService
 from .speech import SpeechService
@@ -12,6 +13,7 @@ __all__ = [
     "AudioSessionError",
     "ConversationLogger",
     "ConversationMemory",
+    "CharacterService",
     "TranscriptFilter",
     "EmotionService",
     "LLMError",
