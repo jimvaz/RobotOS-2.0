@@ -107,3 +107,15 @@
 - Added neutral, friendly, thinking, curious, excited, and funny voice styles.
 - Chatterbox now receives dynamic `exaggeration` and `cfg_weight` per response.
 - Preserved normal speaking speed and the existing low-latency pipeline.
+
+
+## Nobi 2.6.1 Stability Update
+
+- Rejects recordings shorter than 0.90 seconds before Whisper.
+- Rejects low-energy and low-confidence transcripts.
+- Blocks known Whisper hallucinations, including `Υπότιτλοι AUTHORWAVE`.
+- Invalidates in-flight microphone captures whenever playback starts.
+- Uses an 800 ms post-playback cooldown by default.
+- Supports both `ROBOTOS_MIC_RESUME_DELAY_MS` and `ROBOTOS_VAD_THRESHOLD`.
+- Disables barge-in by default until acoustic echo cancellation is available.
+- Introduces the Nobi branding and startup banner.

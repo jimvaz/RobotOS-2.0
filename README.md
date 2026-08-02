@@ -240,3 +240,15 @@ RobotOS now has a canonical character definition in `CHARACTER_BIBLE.md`. The Br
 `neutral`, `friendly`, `thinking`, `curious`, `excited`, `funny`.
 
 The style changes Chatterbox expression only; speaking speed remains normal. Disable the engine with `ROBOTOS_EMOTION_ENGINE=0`.
+
+
+## Nobi 2.6.1 Stability Update
+
+- Rejects recordings shorter than 0.90 seconds before Whisper.
+- Rejects low-energy and low-confidence transcripts.
+- Blocks known Whisper hallucinations, including `Υπότιτλοι AUTHORWAVE`.
+- Invalidates in-flight microphone captures whenever playback starts.
+- Uses an 800 ms post-playback cooldown by default.
+- Supports both `ROBOTOS_MIC_RESUME_DELAY_MS` and `ROBOTOS_VAD_THRESHOLD`.
+- Disables barge-in by default until acoustic echo cancellation is available.
+- Introduces the Nobi branding and startup banner.

@@ -36,6 +36,8 @@ class AudioRecorder:
         self._sounddevice = sounddevice
         self._capture_enabled = threading.Event()
         self._capture_enabled.set()
+        self._generation_lock = threading.Lock()
+        self._generation = 0
 
     @property
     def paused(self) -> bool:
@@ -43,14 +45,31 @@ class AudioRecorder:
 
         return not self._capture_enabled.is_set()
 
+    def _advance_generation(self) -> int:
+        with self._generation_lock:
+            self._generation += 1
+            return self._generation
+
+    @property
+    def generation(self) -> int:
+        with self._generation_lock:
+            return self._generation
+
     def pause(self) -> None:
-        """Suppress capture and interrupt the current utterance."""
+        """Suppress capture and invalidate every in-flight utterance."""
 
         self._capture_enabled.clear()
+        self._advance_generation()
+
+    def discard_pending(self) -> None:
+        """Invalidate pre-buffered or completed audio from an older mic state."""
+
+        self._advance_generation()
 
     def resume(self) -> None:
-        """Allow capture to start again."""
+        """Allow a fresh capture generation to start again."""
 
+        self._advance_generation()
         self._capture_enabled.set()
 
     async def wait_until_resumed(self, poll_seconds: float = 0.05) -> None:
@@ -82,6 +101,7 @@ class AudioRecorder:
     ) -> bytes:
         if self.paused and not allow_while_paused:
             return b""
+        capture_generation = self.generation
 
         try:
             import numpy as np
@@ -116,12 +136,12 @@ class AudioRecorder:
                 blocksize=blocksize,
             ) as stream:
                 for _ in range(max_blocks):
-                    if self.paused and not allow_while_paused:
+                    if (self.paused and not allow_while_paused) or self.generation != capture_generation:
                         return b""
 
                     data, overflowed = stream.read(blocksize)
 
-                    if self.paused and not allow_while_paused:
+                    if (self.paused and not allow_while_paused) or self.generation != capture_generation:
                         return b""
                     if overflowed:
                         continue
@@ -149,7 +169,7 @@ class AudioRecorder:
         except Exception as exc:
             raise AudioRecorderError(f"Αποτυχία καταγραφής μικροφώνου: {exc}") from exc
 
-        if self.paused and not allow_while_paused:
+        if (self.paused and not allow_while_paused) or self.generation != capture_generation:
             return b""
         return b"".join(captured)
 

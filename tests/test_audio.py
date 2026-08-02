@@ -228,3 +228,15 @@ def test_low_latency_recorder_defaults() -> None:
     assert config.silence_ms == 700  # library default remains backwards compatible
     assert config.pre_buffer_ms == 300
     assert config.max_utterance_seconds == 15.0
+
+
+def test_audio_recorder_pause_invalidates_generation() -> None:
+    from node.audio import AudioRecorder
+
+    recorder = AudioRecorder(sounddevice=object())
+    before = recorder.generation
+    recorder.pause()
+    assert recorder.generation > before
+    paused_generation = recorder.generation
+    recorder.resume()
+    assert recorder.generation > paused_generation

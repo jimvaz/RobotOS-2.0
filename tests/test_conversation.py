@@ -50,3 +50,39 @@ def test_conversation_logger_writes_utf8_jsonl(tmp_path) -> None:
     assert record["assistant"] == "Με λένε RobotOS."
     assert record["model"] == "robot-greek"
     assert record["timestamp"]
+
+
+def test_transcript_filter_rejects_authorwave_hallucination() -> None:
+    transcript_filter = TranscriptFilter()
+    accepted, reason = transcript_filter.accept(
+        object(),
+        "Υπότιτλοι AUTHORWAVE",
+        duration_seconds=1.2,
+        rms=0.02,
+    )
+    assert accepted is False
+    assert reason == "known_hallucination"
+
+
+def test_transcript_filter_rejects_short_audio() -> None:
+    transcript_filter = TranscriptFilter(min_duration_seconds=0.9)
+    accepted, reason = transcript_filter.accept(
+        object(),
+        "κάτι",
+        duration_seconds=0.57,
+        rms=0.02,
+    )
+    assert accepted is False
+    assert reason == "too_short"
+
+
+def test_transcript_filter_rejects_low_rms() -> None:
+    transcript_filter = TranscriptFilter(min_rms=0.01)
+    accepted, reason = transcript_filter.accept(
+        object(),
+        "κάτι",
+        duration_seconds=1.2,
+        rms=0.001,
+    )
+    assert accepted is False
+    assert reason == "low_rms"

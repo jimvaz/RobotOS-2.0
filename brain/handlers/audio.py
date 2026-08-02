@@ -64,6 +64,23 @@ def create_audio_handlers(
                 len(pcm),
             )
             pipeline_started = perf_counter()
+            raw_duration = len(pcm) / float(metadata.sample_rate * 2)
+            if transcript_filter is not None and raw_duration < transcript_filter.min_duration_seconds:
+                logger.warning(
+                    "Audio rejected before Whisper: reason=too_short, duration={:.2f}s, bytes={}",
+                    raw_duration,
+                    len(pcm),
+                )
+                await websocket.send(
+                    TranscriptPayload(
+                        session_id=payload.session_id,
+                        text="",
+                        language=metadata.language,
+                        duration_seconds=raw_duration,
+                    ).to_message().to_json()
+                )
+                return
+
             stt_started = perf_counter()
             result = await whisper.transcribe(
                 pcm,
@@ -82,9 +99,24 @@ def create_audio_handlers(
             logger.info("Transcript: {!r} (stt={:.2f}s, audio={:.2f}s)", transcript_text, stt_seconds, result.duration_seconds)
 
             if transcript_filter is not None:
-                accepted, reason = transcript_filter.accept(websocket, transcript_text)
+                accepted, reason = transcript_filter.accept(
+                    websocket,
+                    transcript_text,
+                    duration_seconds=result.duration_seconds,
+                    rms=result.rms,
+                    no_speech_probability=result.no_speech_probability,
+                    average_log_probability=result.average_log_probability,
+                )
                 if not accepted:
-                    logger.info("Transcript skipped: reason={}, text={!r}", reason, transcript_text)
+                    logger.warning(
+                        "Transcript rejected: reason={}, text={!r}, duration={:.2f}s, rms={:.4f}, no_speech={}, avg_logprob={}",
+                        reason,
+                        transcript_text,
+                        result.duration_seconds,
+                        result.rms,
+                        result.no_speech_probability,
+                        result.average_log_probability,
+                    )
                     return
             elif not transcript_text:
                 logger.info("Empty transcript; skipping LLM generation")

@@ -72,6 +72,10 @@ class BrainServer:
         self.transcript_filter = TranscriptFilter(
             dedup_seconds=CONFIG.transcript_dedup_seconds,
             similarity_threshold=CONFIG.transcript_similarity_threshold,
+            min_duration_seconds=CONFIG.min_audio_seconds,
+            min_rms=CONFIG.min_audio_rms,
+            max_no_speech_probability=CONFIG.whisper_max_no_speech_prob,
+            min_average_log_probability=CONFIG.whisper_min_avg_log_prob,
         )
         self.conversation_logger = ConversationLogger(CONFIG.conversation_log_path)
         self.emotion = EmotionService() if CONFIG.emotion_engine_enabled else None

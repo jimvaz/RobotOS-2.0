@@ -50,17 +50,39 @@ class ConversationMemory:
 
 
 class TranscriptFilter:
-    """Reject empty, noise-like, and near-duplicate transcripts."""
+    """Reject empty, hallucinated, low-confidence, and duplicate transcripts."""
+
+    DEFAULT_HALLUCINATIONS = {
+        "υποτιτλοι",
+        "υποτιτλοι authorwave",
+        "authorwave",
+        "ευχαριστω που παρακολουθησατε",
+        "σας ευχαριστω που παρακολουθησατε",
+        "ευχαριστουμε που παρακολουθησατε",
+        "thanks for watching",
+        "subtitles authorwave",
+    }
 
     def __init__(
         self,
         dedup_seconds: float = 3.0,
         similarity_threshold: float = 0.92,
+        min_duration_seconds: float = 0.90,
+        min_rms: float = 0.006,
+        max_no_speech_probability: float = 0.75,
+        min_average_log_probability: float = -1.20,
+        hallucinations: set[str] | None = None,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self.dedup_seconds = max(0.0, dedup_seconds)
         self.similarity_threshold = min(1.0, max(0.0, similarity_threshold))
+        self.min_duration_seconds = max(0.0, min_duration_seconds)
+        self.min_rms = max(0.0, min_rms)
+        self.max_no_speech_probability = min(1.0, max(0.0, max_no_speech_probability))
+        self.min_average_log_probability = min_average_log_probability
         self._clock = clock
+        source = hallucinations if hallucinations is not None else self.DEFAULT_HALLUCINATIONS
+        self.hallucinations = {self.normalize(item) for item in source}
         self._last: dict[Hashable, tuple[str, float]] = {}
 
     @staticmethod
@@ -70,13 +92,39 @@ class TranscriptFilter:
             char for char in unicodedata.normalize("NFD", lowered)
             if unicodedata.category(char) != "Mn"
         )
-        lowered = re.sub(r"[^\w\sάέήίόύώϊϋΐΰ]", " ", lowered, flags=re.UNICODE)
+        lowered = re.sub(r"[^\w\s]", " ", lowered, flags=re.UNICODE)
         return " ".join(lowered.split())
 
-    def accept(self, owner: Hashable, text: str) -> tuple[bool, str]:
+    def accept(
+        self,
+        owner: Hashable,
+        text: str,
+        *,
+        duration_seconds: float | None = None,
+        rms: float | None = None,
+        no_speech_probability: float | None = None,
+        average_log_probability: float | None = None,
+    ) -> tuple[bool, str]:
         normalized = self.normalize(text)
+        if duration_seconds is not None and duration_seconds < self.min_duration_seconds:
+            return False, "too_short"
+        if rms is not None and rms < self.min_rms:
+            return False, "low_rms"
         if not normalized:
             return False, "empty"
+        if normalized in self.hallucinations:
+            return False, "known_hallucination"
+        if (
+            no_speech_probability is not None
+            and no_speech_probability > self.max_no_speech_probability
+        ):
+            return False, "no_speech"
+        if (
+            average_log_probability is not None
+            and average_log_probability < self.min_average_log_probability
+        ):
+            return False, "low_confidence"
+
         now = self._clock()
         previous = self._last.get(owner)
         if previous is not None:

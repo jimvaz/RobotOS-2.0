@@ -26,6 +26,16 @@ class ServerConfig:
     whisper_vad_filter: bool = os.getenv("ROBOTOS_WHISPER_VAD_FILTER", "0").strip().lower() in {"1", "true", "yes", "on"}
     preload_models: bool = os.getenv("ROBOTOS_PRELOAD_MODELS", "1").strip().lower() in {"1", "true", "yes", "on"}
 
+    # Stability guards: reject tiny/noisy clips and common Whisper hallucinations.
+    min_audio_seconds: float = float(os.getenv("ROBOTOS_MIN_AUDIO_SECONDS", "0.90"))
+    min_audio_rms: float = float(os.getenv("ROBOTOS_MIN_AUDIO_RMS", "0.006"))
+    whisper_max_no_speech_prob: float = float(
+        os.getenv("ROBOTOS_WHISPER_MAX_NO_SPEECH_PROB", "0.75")
+    )
+    whisper_min_avg_log_prob: float = float(
+        os.getenv("ROBOTOS_WHISPER_MIN_AVG_LOG_PROB", "-1.20")
+    )
+
     ollama_model: str = os.getenv("ROBOTOS_OLLAMA_MODEL", "robot-greek")
     ollama_url: str = os.getenv("ROBOTOS_OLLAMA_URL", "http://127.0.0.1:11434")
     ollama_timeout_seconds: float = float(

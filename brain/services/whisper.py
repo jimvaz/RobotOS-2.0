@@ -16,6 +16,9 @@ class WhisperResult:
     text: str
     language: str
     duration_seconds: float
+    average_log_probability: float | None = None
+    no_speech_probability: float | None = None
+    rms: float = 0.0
 
 
 class WhisperService:
@@ -83,10 +86,29 @@ class WhisperService:
             vad_filter=self.vad_filter,
             condition_on_previous_text=False,
         )
-        text = " ".join(segment.text.strip() for segment in segments).strip()
+        segment_list = list(segments)
+        text = " ".join(segment.text.strip() for segment in segment_list).strip()
         detected_language = getattr(info, "language", language) or language
         duration = len(samples) / sample_rate
-        return WhisperResult(text=text, language=detected_language, duration_seconds=duration)
+        avg_values = [
+            float(value)
+            for value in (getattr(segment, "avg_logprob", None) for segment in segment_list)
+            if value is not None
+        ]
+        no_speech_values = [
+            float(value)
+            for value in (getattr(segment, "no_speech_prob", None) for segment in segment_list)
+            if value is not None
+        ]
+        rms = float(np.sqrt(np.mean(np.square(samples)))) if samples.size else 0.0
+        return WhisperResult(
+            text=text,
+            language=detected_language,
+            duration_seconds=duration,
+            average_log_probability=(sum(avg_values) / len(avg_values)) if avg_values else None,
+            no_speech_probability=max(no_speech_values) if no_speech_values else None,
+            rms=rms,
+        )
 
     async def preload(self) -> None:
         """Load the model before the first utterance."""

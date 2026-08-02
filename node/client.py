@@ -30,6 +30,7 @@ class NodeClient:
         self.running = True
         self._barge_in_task: asyncio.Task[None] | None = None
         self._barge_in_capture_active = False
+        self._speech_active = False
         self.websocket: ClientConnection | None = None
         self.router = NodeMessageRouter()
         self.piper = PiperTTS(
@@ -86,9 +87,10 @@ class NodeClient:
     async def _pause_microphone_for_speech(self) -> None:
         """Pause normal capture and start the optional barge-in monitor."""
 
-        if not self.audio_recorder.paused:
-            self.audio_recorder.pause()
-            logger.info("MIC paused")
+        self._speech_active = True
+        self.audio_recorder.pause()
+        self.audio_recorder.discard_pending()
+        logger.info("MIC locked for Nobi speech")
         if (
             CONFIG.barge_in_enabled
             and CONFIG.microphone_enabled
@@ -110,8 +112,10 @@ class NodeClient:
         if self._barge_in_capture_active:
             return
         await asyncio.sleep(CONFIG.microphone_resume_delay)
+        self.audio_recorder.discard_pending()
+        self._speech_active = False
         self.audio_recorder.resume()
-        logger.info("MIC resumed")
+        logger.info("MIC resumed after {:.0f} ms cooldown", CONFIG.microphone_resume_delay * 1000)
 
     async def _barge_in_loop(self) -> None:
         """Detect a user utterance during playback and take the conversational turn."""
@@ -270,7 +274,15 @@ class NodeClient:
                     await asyncio.sleep(0.02)
                 if not self.running or self.websocket is None:
                     return
+                capture_generation = self.audio_recorder.generation
                 pcm = await self.audio_recorder.record_utterance()
+                if (
+                    self._speech_active
+                    or self.audio_recorder.paused
+                    or capture_generation != self.audio_recorder.generation
+                ):
+                    logger.debug("Discarded stale microphone capture after state change")
+                    continue
                 if not pcm:
                     await asyncio.sleep(CONFIG.microphone_retry_delay)
                     continue
