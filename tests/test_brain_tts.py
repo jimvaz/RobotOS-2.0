@@ -112,3 +112,32 @@ async def test_speech_service_synthesizes_and_dispatches_sentence_first():
     assert starts[1].payload["segment_index"] == 1
     assert ends[0].payload["final_segment"] is False
     assert ends[1].payload["final_segment"] is True
+
+@pytest.mark.asyncio
+async def test_speech_service_dispatches_first_streamed_sentence_before_completion():
+    class TrackingBackend:
+        name = "chatterbox"
+
+        def __init__(self):
+            self.calls = []
+
+        async def synthesize(self, text, emotion=None):
+            self.calls.append(text)
+            return ("RIFF-" + text).encode("utf-8")
+
+    async def chunks():
+        yield "Φυσικά! "
+        yield "Η απάντηση "
+        yield "είναι εδώ."
+
+    backend = TrackingBackend()
+    socket = Socket()
+    service = SpeechService(Connections([socket]), backend=backend, chunk_size=4096)
+    delivered, text = await service.say_stream(chunks())
+
+    assert delivered == 1
+    assert text == "Φυσικά! Η απάντηση είναι εδώ."
+    assert backend.calls == ["Φυσικά!", "Η απάντηση είναι εδώ."]
+    ends = [m for m in socket.sent if m.type == MessageType.AUDIO_PLAYBACK_END]
+    assert ends[0].payload["final_segment"] is False
+    assert ends[-1].payload["final_segment"] is True

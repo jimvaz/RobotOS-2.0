@@ -94,3 +94,9 @@ The official character definition is stored in `CHARACTER_BIBLE.md`.
 ## Nobi 2.7 — Character Update
 
 Η έκδοση 2.7 επικεντρώνεται αποκλειστικά στον χαρακτήρα και στη φυσικότητα της συνομιλίας. Ο Nobi δεν έχει πλέον μότο. Διαθέτει γρήγορες, εναλλασσόμενες κοινωνικές απαντήσεις και αποφεύγει εκφράσεις που θυμίζουν chatbot ή γλωσσικό μοντέλο. Το audio, Whisper, WebSocket και Chatterbox pipeline παραμένουν αμετάβλητα.
+
+## Nobi 2.7.2 — First Response Latency
+
+This release reduces the delay before Nobi's first spoken words. Ollama now streams its response, and the Brain starts Chatterbox synthesis as soon as the first complete sentence becomes available. The remainder of the answer continues generating while the first segment is synthesized and played.
+
+New diagnostic logs include `First-token latency`, `LLM first sentence ready`, and `total_to_audio`, making the remaining bottleneck measurable on the target PC.

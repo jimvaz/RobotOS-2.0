@@ -110,3 +110,42 @@ def test_llm_service_uses_low_latency_limits() -> None:
 
     assert captured["body"]["options"]["num_predict"] == 64
     assert captured["body"]["options"]["num_ctx"] == 4096
+
+class FakeStreamingResponse:
+    def __init__(self, payloads):
+        self._lines = [
+            (json.dumps(payload, ensure_ascii=False) + "\n").encode("utf-8")
+            for payload in payloads
+        ]
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return None
+
+    def __iter__(self):
+        return iter(self._lines)
+
+
+@pytest.mark.asyncio
+async def test_llm_service_streams_ollama_chunks():
+    captured = {}
+
+    def urlopen(request, timeout):
+        captured["body"] = json.loads(request.data.decode("utf-8"))
+        return FakeStreamingResponse([
+            {"model": "robot-greek", "message": {"content": "Φυσικά! "}, "done": False},
+            {"model": "robot-greek", "message": {"content": "Πες μου τι χρειάζεσαι."}, "done": False},
+            {"model": "robot-greek", "message": {"content": ""}, "done": True},
+        ])
+
+    service = LLMService(urlopen=urlopen)
+    stream = await service.stream("Βοήθησέ με")
+    chunks = [chunk async for chunk in stream]
+
+    assert captured["body"]["stream"] is True
+    assert captured["body"]["think"] is False
+    assert "".join(chunks) == "Φυσικά! Πες μου τι χρειάζεσαι."
+    assert stream.text == "Φυσικά! Πες μου τι χρειάζεσαι."
+    assert stream.first_token_seconds is not None

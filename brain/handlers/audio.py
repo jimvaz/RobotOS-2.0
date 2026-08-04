@@ -137,34 +137,90 @@ def create_audio_handlers(
                 else:
                     history = memory.messages(websocket) if memory is not None else None
                     llm_started = perf_counter()
-                    llm_result = await llm.generate(transcript_text, history=history)
-                    llm_seconds = perf_counter() - llm_started
-                    reply_text = (
-                        character_service.polish(llm_result.text)
-                        if character_service is not None
-                        else llm_result.text
-                    )
-                    reply_model = llm_result.model
-                    logger.info(
-                        "LLM response generated: model={}, text={!r}",
-                        reply_model,
-                        reply_text,
-                    )
-                    logger.info("LLM latency: {:.2f}s", llm_seconds)
+                    if not hasattr(llm, "stream"):
+                        llm_result = await llm.generate(transcript_text, history=history)
+                        reply_text = (
+                            character_service.polish(llm_result.text)
+                            if character_service is not None
+                            else llm_result.text
+                        )
+                        reply_model = llm_result.model
+                        emotion = (
+                            emotion_service.classify(transcript_text, reply_text)
+                            if emotion_service is not None
+                            else None
+                        )
+                        await speech.say(
+                            reply_text,
+                            emotion=emotion.value if emotion is not None else None,
+                        )
+                        logger.info(
+                            "LLM compatibility path completed: model={}, seconds={:.2f}",
+                            reply_model,
+                            perf_counter() - llm_started,
+                        )
+                        llm_stream = None
+                    else:
+                        llm_stream = await llm.stream(transcript_text, history=history)
 
-                emotion = (
-                    emotion_service.classify(transcript_text, reply_text)
-                    if emotion_service is not None
-                    else None
-                )
-                logger.info("Speech emotion selected: {}", emotion or "neutral")
-                tts_started = perf_counter()
-                await speech.say(
-                    reply_text,
-                    emotion=emotion.value if emotion is not None else None,
-                )
-                tts_seconds = perf_counter() - tts_started
-                logger.info("Speech latency: {:.2f}s; total pipeline: {:.2f}s", tts_seconds, perf_counter() - pipeline_started)
+                    def polish_segment(segment: str) -> str:
+                        return (
+                            character_service.polish(segment)
+                            if character_service is not None
+                            else segment.strip()
+                        )
+
+                    def segment_emotion(segment: str) -> str | None:
+                        if emotion_service is None:
+                            return None
+                        return emotion_service.classify(transcript_text, segment).value
+
+                    if llm_stream is not None:
+                        tts_started = perf_counter()
+                        _, reply_text = await speech.say_stream(
+                            llm_stream,
+                            emotion_for=segment_emotion,
+                            transform=polish_segment,
+                        )
+                        tts_seconds = perf_counter() - tts_started
+                        llm_seconds = perf_counter() - llm_started
+                        reply_model = llm_stream.model
+                        logger.info(
+                            "LLM streaming response completed: model={}, text={!r}",
+                            reply_model,
+                            reply_text,
+                        )
+                        logger.info(
+                            "First-token latency: {}; LLM stream total: {:.2f}s",
+                            f"{llm_stream.first_token_seconds:.2f}s"
+                            if llm_stream.first_token_seconds is not None
+                            else "unknown",
+                            llm_stream.completed_seconds or llm_seconds,
+                        )
+                        logger.info(
+                            "Streaming speech latency: {:.2f}s; total pipeline: {:.2f}s",
+                            tts_seconds,
+                            perf_counter() - pipeline_started,
+                        )
+
+                if local_reply is not None:
+                    emotion = (
+                        emotion_service.classify(transcript_text, reply_text)
+                        if emotion_service is not None
+                        else None
+                    )
+                    logger.info("Speech emotion selected: {}", emotion or "neutral")
+                    tts_started = perf_counter()
+                    await speech.say(
+                        reply_text,
+                        emotion=emotion.value if emotion is not None else None,
+                    )
+                    tts_seconds = perf_counter() - tts_started
+                    logger.info(
+                        "Speech latency: {:.2f}s; total pipeline: {:.2f}s",
+                        tts_seconds,
+                        perf_counter() - pipeline_started,
+                    )
                 if memory is not None:
                     memory.add(websocket, transcript_text, reply_text)
                     logger.info("Conversation memory updated: turns={}", len(memory.messages(websocket)) // 2)

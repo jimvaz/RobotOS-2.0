@@ -278,3 +278,15 @@ Audio segment dispatched: segment=1/3
 ```
 
 Το μικρόφωνο παραμένει κλειδωμένο μέχρι να ολοκληρωθεί και το τελευταίο segment.
+
+### Low-latency streamed replies (Nobi 2.7.2)
+
+The Brain uses Ollama's streaming chat API. It no longer waits for the complete LLM response before starting TTS. Once a short first sentence is complete, Chatterbox begins synthesis while Ollama continues generating the rest of the reply.
+
+Useful Brain logs:
+
+```text
+First-token latency: 0.45s
+LLM first sentence ready: 0.82s
+TTS segment ready: index=1, tts=2.10s, total_to_audio=2.92s
+```

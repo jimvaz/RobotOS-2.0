@@ -139,3 +139,12 @@
 - Προστέθηκε φίλτρο που αφαιρεί τυπικές εκφράσεις chatbot από τις απαντήσεις του Ollama.
 - Οι κοινωνικές απαντήσεις παρακάμπτουν το Ollama για μικρότερη καθυστέρηση.
 - Ενημερώθηκε το Character Bible 2.0.
+
+## Nobi 2.7.2 — First Response Latency
+
+- Added true Ollama NDJSON token streaming with `think: false`.
+- The first complete sentence is sent to Chatterbox before the full LLM reply is finished.
+- LLM generation continues in a background thread while TTS and playback run.
+- Added first-token, first-sentence and first-audio latency logs.
+- Added a short-first-sentence persona rule for faster speech onset.
+- Preserved the Nobi voice, speaking speed, character, stability filters and Node playback protocol.
