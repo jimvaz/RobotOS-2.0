@@ -100,3 +100,26 @@ The official character definition is stored in `CHARACTER_BIBLE.md`.
 This release reduces the delay before Nobi's first spoken words. Ollama now streams its response, and the Brain starts Chatterbox synthesis as soon as the first complete sentence becomes available. The remainder of the answer continues generating while the first segment is synthesized and played.
 
 New diagnostic logs include `First-token latency`, `LLM first sentence ready`, and `total_to_audio`, making the remaining bottleneck measurable on the target PC.
+
+## Nobi 2.7.3 — PC Microphone Mode
+
+The Windows Brain can now listen directly through a local microphone while the Raspberry Pi remains responsible for speaker playback and future robot hardware. The tested default is the HIK 4K USB camera microphone on WASAPI device 22 at 48 kHz. Audio is converted to 16 kHz mono PCM before Whisper.
+
+Recommended Windows settings:
+
+```powershell
+$env:ROBOTOS_BRAIN_MICROPHONE_ENABLED="1"
+$env:ROBOTOS_BRAIN_MIC_DEVICE="22"
+$env:ROBOTOS_BRAIN_MIC_SAMPLE_RATE="48000"
+$env:ROBOTOS_BRAIN_MIC_TARGET_RATE="16000"
+$env:ROBOTOS_BRAIN_MIC_THRESHOLD="0.010"
+$env:ROBOTOS_BRAIN_MIC_SILENCE_MS="450"
+$env:ROBOTOS_BRAIN_MIC_PRE_BUFFER_MS="300"
+$env:ROBOTOS_BRAIN_MIC_COOLDOWN_MS="500"
+```
+
+Disable Raspberry microphone capture:
+
+```bash
+export ROBOTOS_MICROPHONE_ENABLED=0
+```

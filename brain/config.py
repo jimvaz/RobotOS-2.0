@@ -64,6 +64,19 @@ class ServerConfig:
         "ROBOTOS_CONVERSATION_LOG", "logs/conversations.jsonl"
     )
 
+
+    # Optional low-latency microphone capture on the Windows Brain.
+    brain_microphone_enabled: bool = os.getenv("ROBOTOS_BRAIN_MICROPHONE_ENABLED", "0").strip().lower() in {"1", "true", "yes", "on"}
+    brain_microphone_device: str | None = os.getenv("ROBOTOS_BRAIN_MIC_DEVICE", "22")
+    brain_microphone_capture_rate: int = int(os.getenv("ROBOTOS_BRAIN_MIC_SAMPLE_RATE", "48000"))
+    brain_microphone_target_rate: int = int(os.getenv("ROBOTOS_BRAIN_MIC_TARGET_RATE", "16000"))
+    brain_microphone_threshold: float = float(os.getenv("ROBOTOS_BRAIN_MIC_THRESHOLD", "0.010"))
+    brain_microphone_silence_ms: int = int(os.getenv("ROBOTOS_BRAIN_MIC_SILENCE_MS", "450"))
+    brain_microphone_pre_buffer_ms: int = int(os.getenv("ROBOTOS_BRAIN_MIC_PRE_BUFFER_MS", "300"))
+    brain_microphone_max_seconds: float = float(os.getenv("ROBOTOS_BRAIN_MIC_MAX_SECONDS", "12"))
+    brain_microphone_cooldown_ms: int = int(os.getenv("ROBOTOS_BRAIN_MIC_COOLDOWN_MS", "500"))
+    brain_microphone_fallback_to_node: bool = os.getenv("ROBOTOS_BRAIN_MIC_FALLBACK_TO_NODE", "1").strip().lower() in {"1", "true", "yes", "on"}
+
     system_prompt: str = os.getenv(
         "ROBOTOS_SYSTEM_PROMPT",
         CHARACTER_SYSTEM_PROMPT,

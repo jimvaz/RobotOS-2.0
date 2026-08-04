@@ -148,3 +148,12 @@
 - Added first-token, first-sentence and first-audio latency logs.
 - Added a short-first-sentence persona rule for faster speech onset.
 - Preserved the Nobi voice, speaking speed, character, stability filters and Node playback protocol.
+
+## Nobi 2.7.3 — PC Microphone Mode
+
+- Added low-latency microphone capture directly on the Windows Brain.
+- Added WASAPI-compatible 48 kHz capture and automatic 16 kHz mono resampling for Whisper.
+- Added configurable RMS endpointing, pre-buffer, silence timeout and maximum utterance length.
+- Added a playback gate so the PC microphone remains suppressed while Nobi audio is playing on the Robot Node.
+- Kept the Raspberry Pi microphone as an optional fallback.
+- Fixed streamed Ollama text joining so Greek words are no longer split by artificial spaces.

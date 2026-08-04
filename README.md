@@ -290,3 +290,37 @@ First-token latency: 0.45s
 LLM first sentence ready: 0.82s
 TTS segment ready: index=1, tts=2.10s, total_to_audio=2.92s
 ```
+
+## PC Microphone Mode (Nobi 2.7.3)
+
+Nobi can capture speech directly on the Windows Brain and use the Raspberry Pi only for audio playback and robot hardware.
+
+Install the Brain audio dependencies:
+
+```powershell
+pip install -r requirements-brain.txt
+```
+
+For the tested HIK 4K USB camera microphone (WASAPI device 22):
+
+```powershell
+$env:ROBOTOS_BRAIN_MICROPHONE_ENABLED="1"
+$env:ROBOTOS_BRAIN_MIC_DEVICE="22"
+$env:ROBOTOS_BRAIN_MIC_SAMPLE_RATE="48000"
+$env:ROBOTOS_BRAIN_MIC_TARGET_RATE="16000"
+$env:ROBOTOS_BRAIN_MIC_THRESHOLD="0.010"
+$env:ROBOTOS_BRAIN_MIC_SILENCE_MS="450"
+$env:ROBOTOS_BRAIN_MIC_PRE_BUFFER_MS="300"
+$env:ROBOTOS_BRAIN_MIC_MAX_SECONDS="12"
+$env:ROBOTOS_BRAIN_MIC_COOLDOWN_MS="500"
+python -m brain.main
+```
+
+On the Raspberry Pi:
+
+```bash
+export ROBOTOS_MICROPHONE_ENABLED=0
+python -m node.main
+```
+
+The Brain records at the microphone's native 48 kHz rate, converts the utterance to 16 kHz mono PCM, then sends it directly to the existing Whisper/LLM/TTS pipeline. The microphone waits during Nobi playback to avoid self-triggering.

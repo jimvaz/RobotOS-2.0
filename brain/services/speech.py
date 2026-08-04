@@ -10,6 +10,7 @@ from loguru import logger
 from websockets.asyncio.server import ServerConnection
 
 from brain.connection_manager import ConnectionManager
+from brain.audio.playback_gate import PlaybackGate
 from brain.services.tts import TTSBackend, TTSError
 from shared.audio_playback import (
     AudioPlaybackCancelPayload,
@@ -82,6 +83,7 @@ class SpeechService:
         fallback_to_node: bool = True,
         chunk_size: int = 48 * 1024,
         segment_max_chars: int = 150,
+        playback_gate: PlaybackGate | None = None,
     ) -> None:
         if chunk_size <= 0:
             raise ValueError("chunk_size must be positive")
@@ -92,6 +94,7 @@ class SpeechService:
         self._fallback_to_node = fallback_to_node
         self._chunk_size = chunk_size
         self._segment_max_chars = segment_max_chars
+        self._playback_gate = playback_gate
         self._cancelled: set[ServerConnection] = set()
 
     def cancel_for(self, websocket: ServerConnection) -> None:
@@ -160,7 +163,15 @@ class SpeechService:
         async for chunk in chunks:
             if not chunk:
                 continue
-            if buffer and chunk and not buffer[-1].isspace() and not chunk[0].isspace():
+            stripped_chunk = chunk.lstrip()
+            if (
+                buffer
+                and stripped_chunk
+                and buffer[-1].isalnum()
+                and stripped_chunk[0].isalnum()
+                and len(stripped_chunk) > 1
+                and len(buffer.rsplit(" ", 1)[-1]) > 1
+            ):
                 buffer += " "
             buffer += chunk
             complete, buffer = _pop_complete_segments(buffer, max_chars=self._segment_max_chars)
@@ -270,6 +281,8 @@ class SpeechService:
                 audio = await self._backend.synthesize(segment, emotion=emotion)  # type: ignore[union-attr]
             except TypeError:
                 audio = await self._backend.synthesize(segment)  # type: ignore[union-attr]
+            if self._playback_gate is not None:
+                self._playback_gate.reserve_wav(audio)
         except TTSError as exc:
             logger.error("High-quality TTS failed at segment {}: {}", segment_index + 1, exc)
             await self._cancel_sequence(active, speech_id, str(exc))
