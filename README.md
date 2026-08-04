@@ -256,3 +256,25 @@ The style changes Chatterbox expression only; speaking speed remains normal. Dis
 - Supports both `ROBOTOS_MIC_RESUME_DELAY_MS` and `ROBOTOS_VAD_THRESHOLD`.
 - Disables barge-in by default until acoustic echo cancellation is available.
 - Introduces the Nobi branding and startup banner.
+
+
+## Fast Speech Start (Nobi 2.7.1)
+
+Οι απαντήσεις πολλών προτάσεων δεν περιμένουν πλέον να συντεθεί ολόκληρο το WAV. Ο Brain συνθέτει πρώτα την πρώτη φυσική πρόταση και τη στέλνει αμέσως στο Raspberry. Καθώς αυτή αναπαράγεται, το Chatterbox συνθέτει την επόμενη.
+
+Στα logs του Brain εμφανίζονται:
+
+```text
+Fast speech first audio ready: 2.10s
+TTS segment generated: 1/3
+Audio segment dispatched: segment=1/3
+```
+
+Στο Raspberry εμφανίζονται:
+
+```text
+[AUDIO STREAM] started: speech=..., segment=1/3
+[AUDIO STREAM] finished: speech=..., segment=1/3
+```
+
+Το μικρόφωνο παραμένει κλειδωμένο μέχρι να ολοκληρωθεί και το τελευταίο segment.

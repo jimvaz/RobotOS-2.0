@@ -76,12 +76,13 @@ class NodeClient:
             MessageType.AUDIO_PLAYBACK,
             create_audio_playback_handler(self.audio_playback_queue),
         )
-        playback_start, playback_chunk, playback_end = create_audio_stream_handlers(
+        playback_start, playback_chunk, playback_end, playback_cancel = create_audio_stream_handlers(
             self.audio_playback_queue
         )
         self.router.register(MessageType.AUDIO_PLAYBACK_START, playback_start)
         self.router.register(MessageType.AUDIO_PLAYBACK_CHUNK, playback_chunk)
         self.router.register(MessageType.AUDIO_PLAYBACK_END, playback_end)
+        self.router.register(MessageType.AUDIO_PLAYBACK_CANCEL, playback_cancel)
         self.router.register(MessageType.TRANSCRIPT, handle_transcript)
 
     async def _pause_microphone_for_speech(self) -> None:

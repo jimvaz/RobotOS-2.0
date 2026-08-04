@@ -2,7 +2,7 @@ import base64
 
 import pytest
 
-from brain.services.speech import SpeechService
+from brain.services.speech import SpeechService, split_for_fast_speech
 from shared.models import Message
 from shared.protocol import MessageType
 
@@ -75,3 +75,40 @@ async def test_speech_service_without_backend_sends_text():
     service = SpeechService(Connections([socket]))
     await service.say("Γεια")
     assert socket.sent[0].type == MessageType.SPEECH
+
+
+def test_fast_speech_split_preserves_natural_sentences():
+    text = "Καλημέρα! Χαίρομαι που σε ακούω. Πώς μπορώ να βοηθήσω;"
+    assert split_for_fast_speech(text) == [
+        "Καλημέρα!",
+        "Χαίρομαι που σε ακούω.",
+        "Πώς μπορώ να βοηθήσω;",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_speech_service_synthesizes_and_dispatches_sentence_first():
+    class TrackingBackend:
+        name = "chatterbox"
+
+        def __init__(self):
+            self.calls = []
+
+        async def synthesize(self, text, emotion=None):
+            self.calls.append(text)
+            return ("RIFF-" + text).encode("utf-8")
+
+    backend = TrackingBackend()
+    socket = Socket()
+    service = SpeechService(Connections([socket]), backend=backend, chunk_size=4096)
+    await service.say("Πρώτη πρόταση. Δεύτερη πρόταση!")
+
+    assert backend.calls == ["Πρώτη πρόταση.", "Δεύτερη πρόταση!"]
+    starts = [m for m in socket.sent if m.type == MessageType.AUDIO_PLAYBACK_START]
+    ends = [m for m in socket.sent if m.type == MessageType.AUDIO_PLAYBACK_END]
+    assert len(starts) == 2
+    assert starts[0].payload["speech_id"] == starts[1].payload["speech_id"]
+    assert starts[0].payload["segment_index"] == 0
+    assert starts[1].payload["segment_index"] == 1
+    assert ends[0].payload["final_segment"] is False
+    assert ends[1].payload["final_segment"] is True

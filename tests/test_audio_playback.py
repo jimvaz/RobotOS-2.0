@@ -2,6 +2,7 @@ import pytest
 
 from node.handlers.audio_playback import create_audio_stream_handlers
 from shared.audio_playback import (
+    AudioPlaybackCancelPayload,
     AudioPlaybackChunkPayload,
     AudioPlaybackEndPayload,
     AudioPlaybackPayload,
@@ -68,7 +69,7 @@ class FakeStreamingQueue:
 @pytest.mark.asyncio
 async def test_stream_handlers_forward_ordered_payloads():
     queue = FakeStreamingQueue()
-    handle_start, handle_chunk, handle_end = create_audio_stream_handlers(queue)
+    handle_start, handle_chunk, handle_end, handle_cancel = create_audio_stream_handlers(queue)
     start = AudioPlaybackStartPayload.create(total_bytes=4, chunk_size=4)
 
     await handle_start(start.to_message())
@@ -76,3 +77,16 @@ async def test_stream_handlers_forward_ordered_payloads():
     await handle_end(AudioPlaybackEndPayload(start.stream_id, 1, 4).to_message())
 
     assert [call[0] for call in queue.calls] == ["start", "chunk", "end"]
+
+
+@pytest.mark.asyncio
+async def test_stream_cancel_finishes_sentence_sequence():
+    queue = FakeStreamingQueue()
+
+    async def finish_speech(speech_id, reason="finished"):
+        queue.calls.append(("finish", speech_id, reason))
+
+    queue.finish_speech = finish_speech
+    _, _, _, handle_cancel = create_audio_stream_handlers(queue)
+    await handle_cancel(AudioPlaybackCancelPayload("speech-1", "tts failed").to_message())
+    assert queue.calls == [("finish", "speech-1", "tts failed")]

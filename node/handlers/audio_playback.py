@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from node.tts.audio_player import AudioPlaybackQueue
 from shared.audio_playback import (
+    AudioPlaybackCancelPayload,
     AudioPlaybackChunkPayload,
     AudioPlaybackEndPayload,
     AudioPlaybackPayload,
@@ -35,6 +36,9 @@ def create_audio_stream_handlers(queue: AudioPlaybackQueue):
                 total_bytes=payload.total_bytes,
                 text=payload.text,
                 engine=payload.engine,
+                speech_id=payload.speech_id,
+                segment_index=payload.segment_index,
+                segment_count=payload.segment_count,
             )
         except (ValidationError, ValueError, RuntimeError) as exc:
             logger.warning("Invalid AUDIO_PLAYBACK_START payload: {}", exc)
@@ -59,9 +63,21 @@ def create_audio_stream_handlers(queue: AudioPlaybackQueue):
                 payload.stream_id,
                 chunks=payload.chunks,
                 total_bytes=payload.total_bytes,
+                speech_id=payload.speech_id,
+                segment_index=payload.segment_index,
+                segment_count=payload.segment_count,
+                final_segment=payload.final_segment,
             )
         except (ValidationError, ValueError, RuntimeError) as exc:
             logger.warning("Invalid AUDIO_PLAYBACK_END payload: {}", exc)
             await queue.abort_stream(str(exc))
 
-    return handle_start, handle_chunk, handle_end
+    async def handle_cancel(message: Message) -> None:
+        try:
+            payload = AudioPlaybackCancelPayload.from_message(message)
+            await queue.finish_speech(payload.speech_id, payload.reason)
+        except (ValidationError, ValueError, RuntimeError) as exc:
+            logger.warning("Invalid AUDIO_PLAYBACK_CANCEL payload: {}", exc)
+            await queue.abort_stream(str(exc))
+
+    return handle_start, handle_chunk, handle_end, handle_cancel

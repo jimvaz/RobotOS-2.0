@@ -22,6 +22,9 @@ class _ActiveStream:
     total_bytes: int
     text: str
     engine: str
+    speech_id: str = ""
+    segment_index: int = 0
+    segment_count: int = 1
 
 
 class AudioPlaybackQueue:
@@ -42,6 +45,7 @@ class AudioPlaybackQueue:
         self._stream: _ActiveStream | None = None
         self._stream_lock = asyncio.Lock()
         self._legacy_process: asyncio.subprocess.Process | None = None
+        self._active_speech_id: str | None = None
 
     @property
     def is_playing(self) -> bool:
@@ -50,7 +54,7 @@ class AudioPlaybackQueue:
             self._legacy_process is not None
             and self._legacy_process.returncode is None
         )
-        return stream_playing or legacy_playing
+        return stream_playing or legacy_playing or self._active_speech_id is not None
 
     def start(self) -> None:
         if self.worker is None or self.worker.done():
@@ -67,11 +71,19 @@ class AudioPlaybackQueue:
         total_bytes: int,
         text: str = "",
         engine: str = "unknown",
+        speech_id: str = "",
+        segment_index: int = 0,
+        segment_count: int = 1,
     ) -> None:
         async with self._stream_lock:
-            await self._abort_stream_locked("replaced by a new stream")
-            if self.on_start:
-                await self.on_start()
+            await self._abort_stream_locked("replaced by a new stream", finish_speech=False)
+            normalized_speech_id = speech_id or stream_id
+            if self._active_speech_id != normalized_speech_id:
+                if self._active_speech_id is not None and self.on_end:
+                    await self.on_end()
+                self._active_speech_id = normalized_speech_id
+                if self.on_start:
+                    await self.on_start()
             process = await asyncio.create_subprocess_exec(
                 self.player,
                 "-q",
@@ -88,10 +100,16 @@ class AudioPlaybackQueue:
                 total_bytes=total_bytes,
                 text=text,
                 engine=engine,
+                speech_id=normalized_speech_id,
+                segment_index=segment_index,
+                segment_count=segment_count,
             )
             logger.info(
-                "[AUDIO STREAM] started: id={}, engine={}, bytes={}, text={!r}",
+                "[AUDIO STREAM] started: id={}, speech={}, segment={}/{}, engine={}, bytes={}, text={!r}",
                 stream_id,
+                normalized_speech_id,
+                segment_index + 1,
+                segment_count,
                 engine,
                 total_bytes,
                 text,
@@ -113,7 +131,17 @@ class AudioPlaybackQueue:
             stream.expected_sequence += 1
             stream.received_bytes += len(audio)
 
-    async def end_stream(self, stream_id: str, *, chunks: int, total_bytes: int) -> None:
+    async def end_stream(
+        self,
+        stream_id: str,
+        *,
+        chunks: int,
+        total_bytes: int,
+        speech_id: str = "",
+        segment_index: int = 0,
+        segment_count: int = 1,
+        final_segment: bool = True,
+    ) -> None:
         async with self._stream_lock:
             stream = self._stream
             if stream is None or stream.stream_id != stream_id:
@@ -135,23 +163,42 @@ class AudioPlaybackQueue:
                 if stream.process.returncode:
                     raise RuntimeError(stderr.decode(errors="replace"))
                 logger.info(
-                    "[AUDIO STREAM] finished: id={}, chunks={}, bytes={}",
+                    "[AUDIO STREAM] finished: id={}, speech={}, segment={}/{}, chunks={}, bytes={}",
                     stream_id,
+                    speech_id or stream.speech_id,
+                    segment_index + 1,
+                    segment_count,
                     chunks,
                     total_bytes,
                 )
             finally:
                 self._stream = None
-                if self.on_end:
-                    await self.on_end()
+                if final_segment:
+                    await self._finish_speech_locked()
 
     async def abort_stream(self, reason: str = "aborted") -> None:
         async with self._stream_lock:
-            await self._abort_stream_locked(reason)
+            await self._abort_stream_locked(reason, finish_speech=True)
 
-    async def _abort_stream_locked(self, reason: str) -> None:
+    async def finish_speech(self, speech_id: str, reason: str = "finished") -> None:
+        async with self._stream_lock:
+            if self._active_speech_id not in {None, speech_id}:
+                return
+            await self._abort_stream_locked(reason, finish_speech=False)
+            await self._finish_speech_locked()
+
+    async def _finish_speech_locked(self) -> None:
+        if self._active_speech_id is None:
+            return
+        self._active_speech_id = None
+        if self.on_end:
+            await self.on_end()
+
+    async def _abort_stream_locked(self, reason: str, *, finish_speech: bool = True) -> None:
         stream = self._stream
         if stream is None:
+            if finish_speech:
+                await self._finish_speech_locked()
             return
         logger.warning("[AUDIO STREAM] aborting id={}: {}", stream.stream_id, reason)
         if stream.process.stdin is not None:
@@ -161,8 +208,8 @@ class AudioPlaybackQueue:
             with suppress(asyncio.TimeoutError):
                 await asyncio.wait_for(stream.process.wait(), timeout=2)
         self._stream = None
-        if self.on_end:
-            await self.on_end()
+        if finish_speech:
+            await self._finish_speech_locked()
 
     async def interrupt(self, reason: str = "user speech") -> None:
         """Immediately stop active playback and discard queued legacy audio."""
