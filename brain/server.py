@@ -21,6 +21,7 @@ from brain.handlers import (
     handle_heartbeat,
     handle_hello,
 )
+from brain.handlers.playback import create_playback_finished_handler
 from brain.router import MessageRouter
 from brain.services import (
     AudioBufferService,
@@ -114,6 +115,7 @@ class BrainServer:
         router = MessageRouter()
         router.register(MessageType.HELLO, handle_hello)
         router.register(MessageType.HEARTBEAT, handle_heartbeat)
+        router.register(MessageType.AUDIO_PLAYBACK_FINISHED, create_playback_finished_handler(self.playback_gate))
         router.register(MessageType.SPEECH, create_speech_handler(self.speech))
         router.register(
             MessageType.SPEECH_INTERRUPT,

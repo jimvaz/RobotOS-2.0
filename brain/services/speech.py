@@ -111,6 +111,8 @@ class SpeechService:
 
         segments = split_for_fast_speech(clean, max_chars=self._segment_max_chars)
         speech_id = str(uuid4())
+        if self._playback_gate is not None:
+            self._playback_gate.begin(speech_id)
         active = set(recipients)
         started = perf_counter()
         for index, segment in enumerate(segments):
@@ -153,6 +155,8 @@ class SpeechService:
             return await self._send_text_fallback(recipients, text, None), text
 
         speech_id = str(uuid4())
+        if self._playback_gate is not None:
+            self._playback_gate.begin(speech_id)
         started = perf_counter()
         first_sentence_at: float | None = None
         buffer = ""
@@ -279,11 +283,11 @@ class SpeechService:
                 audio = await self._backend.synthesize(segment, emotion=emotion)  # type: ignore[union-attr]
             except TypeError:
                 audio = await self._backend.synthesize(segment)  # type: ignore[union-attr]
-            if self._playback_gate is not None:
-                self._playback_gate.reserve_wav(audio)
         except TTSError as exc:
             logger.error("High-quality TTS failed at segment {}: {}", segment_index + 1, exc)
             await self._cancel_sequence(active, speech_id, str(exc))
+            if self._playback_gate is not None:
+                await self._playback_gate.cancel(speech_id)
             if self._fallback_to_node:
                 await self._send_text_fallback(list(active), segment, emotion)
             else:

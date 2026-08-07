@@ -1,54 +1,62 @@
-"""Coordinate the local Brain microphone with remote Node audio playback."""
-
+"""Coordinate the local Brain microphone with real Node playback state."""
 from __future__ import annotations
 
 import asyncio
-import io
-import time
-import wave
-
 from loguru import logger
 
 
 class PlaybackGate:
-    """Suppress local microphone capture while Nobi audio is expected to play."""
+    """Hard-lock the Brain microphone until the Node confirms playback finished."""
 
     def __init__(self, cooldown_seconds: float = 0.5) -> None:
         self.cooldown_seconds = max(0.0, cooldown_seconds)
-        self._blocked_until = 0.0
+        self._active_speeches: set[str] = set()
         self._changed = asyncio.Event()
         self._changed.set()
+        self._release_task: asyncio.Task[None] | None = None
 
     @property
     def blocked(self) -> bool:
-        return time.monotonic() < self._blocked_until
+        return bool(self._active_speeches) or (self._release_task is not None and not self._release_task.done())
 
-    def reserve_seconds(self, seconds: float) -> None:
-        now = time.monotonic()
-        base = max(now, self._blocked_until)
-        self._blocked_until = base + max(0.0, seconds) + self.cooldown_seconds
+    def begin(self, speech_id: str) -> None:
+        if self._release_task is not None and not self._release_task.done():
+            self._release_task.cancel()
+        self._release_task = None
+        self._active_speeches.add(speech_id)
         self._changed.clear()
-        logger.debug("PC microphone reserved for playback: {:.2f}s", seconds)
+        logger.info("PC MIC hard-locked for playback: speech={}", speech_id)
 
-    def reserve_wav(self, audio: bytes) -> float:
-        duration = 0.0
+    async def finish(self, speech_id: str) -> None:
+        if speech_id not in self._active_speeches:
+            logger.debug("Ignoring playback ACK for inactive speech={}", speech_id)
+            return
+        self._active_speeches.discard(speech_id)
+        if self._active_speeches:
+            return
+        if self._release_task is not None and not self._release_task.done():
+            self._release_task.cancel()
+        self._release_task = asyncio.create_task(self._release_after_cooldown(speech_id))
+
+    async def cancel(self, speech_id: str) -> None:
+        self._active_speeches.discard(speech_id)
+        if not self._active_speeches:
+            if self._release_task is not None and not self._release_task.done():
+                self._release_task.cancel()
+            self._release_task = None
+            self._changed.set()
+            logger.info("PC MIC playback lock cancelled: speech={}", speech_id)
+
+    async def _release_after_cooldown(self, speech_id: str) -> None:
         try:
-            with wave.open(io.BytesIO(audio), "rb") as wav_file:
-                rate = wav_file.getframerate()
-                duration = wav_file.getnframes() / float(rate) if rate else 0.0
-        except (wave.Error, EOFError):
-            # Conservative fallback for malformed/non-WAV data.
-            duration = 1.0
-        self.reserve_seconds(duration)
-        return duration
+            if self.cooldown_seconds:
+                await asyncio.sleep(self.cooldown_seconds)
+            if not self._active_speeches:
+                self._changed.set()
+                logger.info("PC MIC unlocked after playback ACK + {:.0f} ms cooldown: speech={}", self.cooldown_seconds * 1000, speech_id)
+        finally:
+            self._release_task = None
 
     async def wait_until_open(self) -> None:
-        while True:
-            remaining = self._blocked_until - time.monotonic()
-            if remaining <= 0:
-                self._changed.set()
-                return
-            try:
-                await asyncio.wait_for(self._changed.wait(), timeout=remaining)
-            except asyncio.TimeoutError:
-                pass
+        while self.blocked:
+            await self._changed.wait()

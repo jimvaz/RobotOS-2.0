@@ -27,20 +27,19 @@ def test_resample_48k_to_16k_pcm() -> None:
     assert len(pcm) == 16000 * 2
 
 
-def test_playback_gate_reserves_wav_duration() -> None:
+def test_playback_gate_hard_lock() -> None:
     gate = PlaybackGate(cooldown_seconds=0.1)
-    duration = gate.reserve_wav(_wav_bytes(0.2))
-    assert duration == pytest.approx(0.2, abs=0.01)
+    gate.begin("speech-1")
     assert gate.blocked
 
 
 @pytest.mark.asyncio
-async def test_playback_gate_eventually_opens() -> None:
-    gate = PlaybackGate(cooldown_seconds=0.0)
-    gate.reserve_seconds(0.01)
+async def test_playback_gate_opens_only_after_ack_and_cooldown() -> None:
+    gate = PlaybackGate(cooldown_seconds=0.01)
+    gate.begin("speech-1")
+    await gate.finish("speech-1")
     await asyncio.wait_for(gate.wait_until_open(), timeout=0.2)
     assert not gate.blocked
-
 
 def test_local_microphone_config_defaults() -> None:
     cfg = LocalMicrophoneConfig(device=1)

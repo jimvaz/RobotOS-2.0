@@ -18,6 +18,7 @@ from node.router import NodeMessageRouter
 from node.tts import PiperTTS, SpeechQueue, VoiceEngine
 from node.tts.audio_player import AudioPlaybackQueue
 from shared.barge_in import SpeechInterruptPayload
+from shared.audio_playback import AudioPlaybackFinishedPayload
 from shared.models import Message
 from shared.protocol import MessageType
 from shared.version import PROTOCOL_VERSION, ROBOTOS_VERSION
@@ -57,6 +58,7 @@ class NodeClient:
             CONFIG.audio_player,
             on_start=self._pause_microphone_for_speech,
             on_end=self._resume_microphone_after_speech,
+            on_playback_finished=self._send_playback_finished,
         )
         self.audio_recorder = AudioRecorder(
             RecorderConfig(
@@ -84,6 +86,11 @@ class NodeClient:
         self.router.register(MessageType.AUDIO_PLAYBACK_END, playback_end)
         self.router.register(MessageType.AUDIO_PLAYBACK_CANCEL, playback_cancel)
         self.router.register(MessageType.TRANSCRIPT, handle_transcript)
+
+    async def _send_playback_finished(self, speech_id: str) -> None:
+        """ACK only after aplay has consumed the final speech segment."""
+        await self.send_message(AudioPlaybackFinishedPayload(speech_id).to_message())
+        logger.info("Playback finished ACK sent: speech={}", speech_id)
 
     async def _pause_microphone_for_speech(self) -> None:
         """Pause normal capture and start the optional barge-in monitor."""

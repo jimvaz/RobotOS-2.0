@@ -11,6 +11,7 @@ from pathlib import Path
 from loguru import logger
 
 Hook = Callable[[], Awaitable[None]]
+FinishedHook = Callable[[str], Awaitable[None]]
 
 
 @dataclass(slots=True)
@@ -36,10 +37,12 @@ class AudioPlaybackQueue:
         *,
         on_start: Hook | None = None,
         on_end: Hook | None = None,
+        on_playback_finished: FinishedHook | None = None,
     ) -> None:
         self.player = player
         self.on_start = on_start
         self.on_end = on_end
+        self.on_playback_finished = on_playback_finished
         self.queue: asyncio.Queue[tuple[bytes, str, str]] = asyncio.Queue()
         self.worker: asyncio.Task[None] | None = None
         self._stream: _ActiveStream | None = None
@@ -174,6 +177,9 @@ class AudioPlaybackQueue:
             finally:
                 self._stream = None
                 if final_segment:
+                    finished_speech_id = speech_id or stream.speech_id
+                    if self.on_playback_finished:
+                        await self.on_playback_finished(finished_speech_id)
                     await self._finish_speech_locked()
 
     async def abort_stream(self, reason: str = "aborted") -> None:

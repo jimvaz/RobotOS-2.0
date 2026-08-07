@@ -129,3 +129,11 @@ Disable Raspberry microphone capture:
 ```bash
 export ROBOTOS_MICROPHONE_ENABLED=0
 ```
+
+## Nobi 2.7.3.2 — Hard Playback Lock
+
+- Replaced estimated WAV-duration microphone gating with an authoritative playback ACK.
+- Brain hard-locks the PC microphone for the entire speech sequence, including TTS gaps between segments.
+- Raspberry Node sends `audio_playback_finished` only after `aplay` finishes the final segment.
+- Brain releases the PC microphone only after that ACK plus the configured cooldown.
+- Added regression coverage for the hard lock and playback-finished protocol payload.

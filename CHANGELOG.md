@@ -163,3 +163,6 @@
 - Added a playback gate so the PC microphone remains suppressed while Nobi audio is playing on the Robot Node.
 - Kept the Raspberry Pi microphone as an optional fallback.
 - Fixed streamed Ollama text joining so Greek words are no longer split by artificial spaces.
+
+## 2.0.0-beta.8.3.2
+- Added Node-to-Brain final playback acknowledgement and hard PC microphone playback lock.

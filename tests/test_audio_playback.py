@@ -5,6 +5,7 @@ from shared.audio_playback import (
     AudioPlaybackCancelPayload,
     AudioPlaybackChunkPayload,
     AudioPlaybackEndPayload,
+    AudioPlaybackFinishedPayload,
     AudioPlaybackPayload,
     AudioPlaybackStartPayload,
 )
@@ -90,3 +91,10 @@ async def test_stream_cancel_finishes_sentence_sequence():
     _, _, _, handle_cancel = create_audio_stream_handlers(queue)
     await handle_cancel(AudioPlaybackCancelPayload("speech-1", "tts failed").to_message())
     assert queue.calls == [("finish", "speech-1", "tts failed")]
+
+
+def test_playback_finished_ack_round_trip():
+    payload = AudioPlaybackFinishedPayload("speech-42")
+    restored = AudioPlaybackFinishedPayload.from_message(payload.to_message())
+    assert restored.speech_id == "speech-42"
+    assert payload.to_message().type == MessageType.AUDIO_PLAYBACK_FINISHED

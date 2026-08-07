@@ -220,3 +220,23 @@ class AudioPlaybackCancelPayload:
             raise ValueError("Expected AUDIO_PLAYBACK_CANCEL message")
         model = AudioPlaybackCancelModel.model_validate(message.payload)
         return cls(**model.model_dump())
+
+
+class AudioPlaybackFinishedModel(BaseModel):
+    speech_id: str = Field(min_length=1)
+
+
+@dataclass(frozen=True, slots=True)
+class AudioPlaybackFinishedPayload:
+    """Node acknowledgement emitted only after the final sample has played."""
+    speech_id: str
+
+    def to_message(self) -> Message:
+        return Message(type=MessageType.AUDIO_PLAYBACK_FINISHED, payload={"speech_id": self.speech_id})
+
+    @classmethod
+    def from_message(cls, message: Message) -> "AudioPlaybackFinishedPayload":
+        if message.type != MessageType.AUDIO_PLAYBACK_FINISHED:
+            raise ValueError("Expected AUDIO_PLAYBACK_FINISHED message")
+        model = AudioPlaybackFinishedModel.model_validate(message.payload)
+        return cls(speech_id=model.speech_id)
