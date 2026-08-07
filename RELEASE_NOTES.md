@@ -1,3 +1,9 @@
+## Nobi 2.7.3.1 — PC Mic Bugfixes
+
+- Cancels an in-flight PC microphone capture as soon as Nobi playback starts, including a second gate check immediately after a blocking PortAudio read.
+- Preserves Ollama streaming chunks exactly so token boundaries no longer introduce spaces inside Greek words.
+- Uses the verified HIK microphone MME device `1` as the default PC microphone input; it remains overridable with `ROBOTOS_BRAIN_MIC_DEVICE`.
+
 
 ## Nobi 2.7.1 — Fast Speech Start
 
@@ -103,13 +109,13 @@ New diagnostic logs include `First-token latency`, `LLM first sentence ready`, a
 
 ## Nobi 2.7.3 — PC Microphone Mode
 
-The Windows Brain can now listen directly through a local microphone while the Raspberry Pi remains responsible for speaker playback and future robot hardware. The tested default is the HIK 4K USB camera microphone on WASAPI device 22 at 48 kHz. Audio is converted to 16 kHz mono PCM before Whisper.
+The Windows Brain can now listen directly through a local microphone while the Raspberry Pi remains responsible for speaker playback and future robot hardware. The tested default is the HIK 4K USB camera microphone on MME device 1 at 48 kHz. Audio is converted to 16 kHz mono PCM before Whisper.
 
 Recommended Windows settings:
 
 ```powershell
 $env:ROBOTOS_BRAIN_MICROPHONE_ENABLED="1"
-$env:ROBOTOS_BRAIN_MIC_DEVICE="22"
+$env:ROBOTOS_BRAIN_MIC_DEVICE="1"
 $env:ROBOTOS_BRAIN_MIC_SAMPLE_RATE="48000"
 $env:ROBOTOS_BRAIN_MIC_TARGET_RATE="16000"
 $env:ROBOTOS_BRAIN_MIC_THRESHOLD="0.010"

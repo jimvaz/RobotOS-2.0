@@ -1,3 +1,9 @@
+## Nobi 2.7.3.1 — PC Mic Bugfixes
+
+- Cancels an in-flight PC microphone capture as soon as Nobi playback starts, including a second gate check immediately after a blocking PortAudio read.
+- Preserves Ollama streaming chunks exactly so token boundaries no longer introduce spaces inside Greek words.
+- Uses the verified HIK microphone MME device `1` as the default PC microphone input; it remains overridable with `ROBOTOS_BRAIN_MIC_DEVICE`.
+
 
 ## Nobi 2.7.1 — Fast Speech Start
 

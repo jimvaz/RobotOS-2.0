@@ -159,20 +159,18 @@ class SpeechService:
         pending: str | None = None
         full_parts: list[str] = []
         segment_index = 0
+        boundary_space = False
 
         async for chunk in chunks:
             if not chunk:
                 continue
-            stripped_chunk = chunk.lstrip()
-            if (
-                buffer
-                and stripped_chunk
-                and buffer[-1].isalnum()
-                and stripped_chunk[0].isalnum()
-                and len(stripped_chunk) > 1
-                and len(buffer.rsplit(" ", 1)[-1]) > 1
-            ):
+            # Ollama chunks may split inside a word, so never infer a space merely
+            # from a chunk boundary. _pop_complete_segments() normalizes/strips its
+            # remainder, therefore remember only whitespace that Ollama actually
+            # emitted at the end of the previous chunk.
+            if boundary_space and buffer and not chunk[0].isspace():
                 buffer += " "
+            boundary_space = chunk[-1].isspace()
             buffer += chunk
             complete, buffer = _pop_complete_segments(buffer, max_chars=self._segment_max_chars)
             for segment in complete:

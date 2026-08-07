@@ -141,3 +141,30 @@ async def test_speech_service_dispatches_first_streamed_sentence_before_completi
     ends = [m for m in socket.sent if m.type == MessageType.AUDIO_PLAYBACK_END]
     assert ends[0].payload["final_segment"] is False
     assert ends[-1].payload["final_segment"] is True
+
+
+@pytest.mark.asyncio
+async def test_speech_stream_preserves_arbitrary_greek_token_boundaries():
+    class TrackingBackend:
+        name = "chatterbox"
+
+        def __init__(self):
+            self.calls = []
+
+        async def synthesize(self, text, emotion=None):
+            self.calls.append(text)
+            return ("RIFF-" + text).encode("utf-8")
+
+    async def chunks():
+        # These intentionally split inside words, like real Ollama streaming can.
+        for chunk in ("Ω", "ρα", "ία! ", "Εί", "μαι εδώ."):
+            yield chunk
+
+    backend = TrackingBackend()
+    socket = Socket()
+    service = SpeechService(Connections([socket]), backend=backend, chunk_size=4096)
+    delivered, text = await service.say_stream(chunks())
+
+    assert delivered == 1
+    assert text == "Ωραία! Είμαι εδώ."
+    assert backend.calls == ["Ωραία!", "Είμαι εδώ."]

@@ -103,7 +103,20 @@ class LocalMicrophoneListener:
                 latency="low",
             ) as stream:
                 for _ in range(max_blocks):
+                    # Playback can begin while this blocking capture loop is already
+                    # running in a worker thread. Abort immediately so Nobi's own
+                    # speech can never become part of the next Whisper utterance.
+                    if self.playback_gate.blocked:
+                        logger.debug("PC microphone capture cancelled: Nobi playback started")
+                        return b""
+
                     data, overflowed = stream.read(blocksize)
+
+                    # The gate may have closed while PortAudio was blocked in read().
+                    if self.playback_gate.blocked:
+                        logger.debug("PC microphone capture cancelled after read: Nobi playback started")
+                        return b""
+
                     if overflowed:
                         logger.debug("PC microphone overflow")
                     block = np.asarray(data, dtype=np.float32)

@@ -67,7 +67,7 @@ class ServerConfig:
 
     # Optional low-latency microphone capture on the Windows Brain.
     brain_microphone_enabled: bool = os.getenv("ROBOTOS_BRAIN_MICROPHONE_ENABLED", "0").strip().lower() in {"1", "true", "yes", "on"}
-    brain_microphone_device: str | None = os.getenv("ROBOTOS_BRAIN_MIC_DEVICE", "22")
+    brain_microphone_device: str | None = os.getenv("ROBOTOS_BRAIN_MIC_DEVICE", "1")
     brain_microphone_capture_rate: int = int(os.getenv("ROBOTOS_BRAIN_MIC_SAMPLE_RATE", "48000"))
     brain_microphone_target_rate: int = int(os.getenv("ROBOTOS_BRAIN_MIC_TARGET_RATE", "16000"))
     brain_microphone_threshold: float = float(os.getenv("ROBOTOS_BRAIN_MIC_THRESHOLD", "0.010"))

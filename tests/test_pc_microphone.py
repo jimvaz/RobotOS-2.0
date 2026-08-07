@@ -43,7 +43,7 @@ async def test_playback_gate_eventually_opens() -> None:
 
 
 def test_local_microphone_config_defaults() -> None:
-    cfg = LocalMicrophoneConfig(device=22)
+    cfg = LocalMicrophoneConfig(device=1)
     assert cfg.capture_rate == 48000
     assert cfg.target_rate == 16000
-    assert cfg.device == 22
+    assert cfg.device == 1
