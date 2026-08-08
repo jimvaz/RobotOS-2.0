@@ -25,9 +25,14 @@ class LocalMicrophoneConfig:
     channels: int = 1
     block_ms: int = 20
     speech_threshold: float = 0.010
-    silence_ms: int = 450
+    silence_ms: int = 650
     pre_buffer_ms: int = 300
-    max_seconds: float = 12.0
+    max_seconds: float = 30.0
+    adaptive_listening: bool = True
+    medium_after_seconds: float = 3.0
+    long_after_seconds: float = 7.0
+    medium_silence_ms: int = 850
+    long_silence_ms: int = 1200
     retry_delay: float = 0.25
     language: str = "el"
 
@@ -48,6 +53,22 @@ class LocalMicrophoneListener:
 
     def stop(self) -> None:
         self.running = False
+
+    def _endpoint_silence_ms(self, speech_seconds: float) -> int:
+        """Return the silence window used to decide that the user finished speaking.
+
+        Short requests stay responsive, while longer requests tolerate natural
+        thinking pauses. ROBOTOS_BRAIN_MIC_SILENCE_MS remains the short/fallback
+        window, so existing deployments keep their explicit preference.
+        """
+        cfg = self.config
+        if not cfg.adaptive_listening:
+            return cfg.silence_ms
+        if speech_seconds >= cfg.long_after_seconds:
+            return max(cfg.silence_ms, cfg.long_silence_ms)
+        if speech_seconds >= cfg.medium_after_seconds:
+            return max(cfg.silence_ms, cfg.medium_silence_ms)
+        return cfg.silence_ms
 
     @staticmethod
     def _resample_to_int16(samples, source_rate: int, target_rate: int) -> bytes:
@@ -85,7 +106,6 @@ class LocalMicrophoneListener:
 
         cfg = self.config
         blocksize = max(1, int(cfg.capture_rate * cfg.block_ms / 1000))
-        silence_blocks = max(1, cfg.silence_ms // cfg.block_ms)
         pre_blocks = max(1, cfg.pre_buffer_ms // cfg.block_ms)
         max_blocks = max(1, int(cfg.max_seconds * 1000 / cfg.block_ms))
         pre_buffer: deque = deque(maxlen=pre_blocks)
@@ -135,7 +155,15 @@ class LocalMicrophoneListener:
                     captured.append(block.copy())
                     if rms < cfg.speech_threshold:
                         silent_count += 1
+                        speech_seconds = len(captured) * cfg.block_ms / 1000.0
+                        endpoint_ms = self._endpoint_silence_ms(speech_seconds)
+                        silence_blocks = max(1, endpoint_ms // cfg.block_ms)
                         if silent_count >= silence_blocks:
+                            logger.debug(
+                                "Adaptive endpoint: speech={:.2f}s, silence={}ms",
+                                speech_seconds,
+                                endpoint_ms,
+                            )
                             break
                     else:
                         silent_count = 0
@@ -150,11 +178,16 @@ class LocalMicrophoneListener:
     async def run(self) -> None:
         cfg = self.config
         logger.info(
-            "PC microphone enabled: device={}, capture={}Hz, target={}Hz, threshold={:.4f}",
+            "PC microphone enabled: device={}, capture={}Hz, target={}Hz, threshold={:.4f}, adaptive={}, silence={}→{}→{}ms, max={:.0f}s",
             cfg.device,
             cfg.capture_rate,
             cfg.target_rate,
             cfg.speech_threshold,
+            cfg.adaptive_listening,
+            cfg.silence_ms,
+            max(cfg.silence_ms, cfg.medium_silence_ms),
+            max(cfg.silence_ms, cfg.long_silence_ms),
+            cfg.max_seconds,
         )
         while self.running:
             await self.playback_gate.wait_until_open()

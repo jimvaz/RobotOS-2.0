@@ -71,9 +71,14 @@ class ServerConfig:
     brain_microphone_capture_rate: int = int(os.getenv("ROBOTOS_BRAIN_MIC_SAMPLE_RATE", "48000"))
     brain_microphone_target_rate: int = int(os.getenv("ROBOTOS_BRAIN_MIC_TARGET_RATE", "16000"))
     brain_microphone_threshold: float = float(os.getenv("ROBOTOS_BRAIN_MIC_THRESHOLD", "0.010"))
-    brain_microphone_silence_ms: int = int(os.getenv("ROBOTOS_BRAIN_MIC_SILENCE_MS", "450"))
+    brain_microphone_silence_ms: int = int(os.getenv("ROBOTOS_BRAIN_MIC_SILENCE_MS", "650"))
     brain_microphone_pre_buffer_ms: int = int(os.getenv("ROBOTOS_BRAIN_MIC_PRE_BUFFER_MS", "300"))
-    brain_microphone_max_seconds: float = float(os.getenv("ROBOTOS_BRAIN_MIC_MAX_SECONDS", "12"))
+    brain_microphone_max_seconds: float = float(os.getenv("ROBOTOS_BRAIN_MIC_MAX_SECONDS", "30"))
+    brain_microphone_adaptive_listening: bool = os.getenv("ROBOTOS_BRAIN_MIC_ADAPTIVE", "1").strip().lower() in {"1", "true", "yes", "on"}
+    brain_microphone_medium_after_seconds: float = float(os.getenv("ROBOTOS_BRAIN_MIC_MEDIUM_AFTER_SECONDS", "3.0"))
+    brain_microphone_long_after_seconds: float = float(os.getenv("ROBOTOS_BRAIN_MIC_LONG_AFTER_SECONDS", "7.0"))
+    brain_microphone_medium_silence_ms: int = int(os.getenv("ROBOTOS_BRAIN_MIC_MEDIUM_SILENCE_MS", "850"))
+    brain_microphone_long_silence_ms: int = int(os.getenv("ROBOTOS_BRAIN_MIC_LONG_SILENCE_MS", "1200"))
     brain_microphone_cooldown_ms: int = int(os.getenv("ROBOTOS_BRAIN_MIC_COOLDOWN_MS", "500"))
     brain_microphone_fallback_to_node: bool = os.getenv("ROBOTOS_BRAIN_MIC_FALLBACK_TO_NODE", "1").strip().lower() in {"1", "true", "yes", "on"}
 

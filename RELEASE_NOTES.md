@@ -137,3 +137,26 @@ export ROBOTOS_MICROPHONE_ENABLED=0
 - Raspberry Node sends `audio_playback_finished` only after `aplay` finishes the final segment.
 - Brain releases the PC microphone only after that ACK plus the configured cooldown.
 - Added regression coverage for the hard lock and playback-finished protocol payload.
+
+
+## Nobi 2.7.3.3 — Adaptive Listening
+
+- PC microphone endpointing now adapts to how long the user has been speaking.
+- Short requests use 650 ms of silence for a fast response.
+- After 3 seconds of speech, the pause allowance grows to 850 ms.
+- After 7 seconds, it grows to 1200 ms so longer questions can include natural thinking pauses.
+- Maximum utterance length is now 30 seconds by default.
+- Hard Playback Lock remains unchanged, so adaptive listening never records Nobi's own playback.
+- Existing `ROBOTOS_BRAIN_MIC_SILENCE_MS` values are respected as a minimum and are never shortened.
+
+Optional tuning:
+
+```text
+ROBOTOS_BRAIN_MIC_ADAPTIVE=1
+ROBOTOS_BRAIN_MIC_SILENCE_MS=650
+ROBOTOS_BRAIN_MIC_MEDIUM_AFTER_SECONDS=3.0
+ROBOTOS_BRAIN_MIC_MEDIUM_SILENCE_MS=850
+ROBOTOS_BRAIN_MIC_LONG_AFTER_SECONDS=7.0
+ROBOTOS_BRAIN_MIC_LONG_SILENCE_MS=1200
+ROBOTOS_BRAIN_MIC_MAX_SECONDS=30
+```

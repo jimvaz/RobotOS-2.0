@@ -46,3 +46,31 @@ def test_local_microphone_config_defaults() -> None:
     assert cfg.capture_rate == 48000
     assert cfg.target_rate == 16000
     assert cfg.device == 1
+
+
+def _listener_for_endpoint(cfg: LocalMicrophoneConfig) -> LocalMicrophoneListener:
+    async def submit(_pcm: bytes, _rate: int, _language: str) -> None:
+        return None
+    return LocalMicrophoneListener(cfg, submit, PlaybackGate(cooldown_seconds=0.0))
+
+
+def test_adaptive_endpoint_windows() -> None:
+    listener = _listener_for_endpoint(LocalMicrophoneConfig(device=1))
+    assert listener._endpoint_silence_ms(1.5) == 650
+    assert listener._endpoint_silence_ms(3.0) == 850
+    assert listener._endpoint_silence_ms(6.9) == 850
+    assert listener._endpoint_silence_ms(7.0) == 1200
+
+
+def test_explicit_silence_setting_is_never_shortened() -> None:
+    listener = _listener_for_endpoint(LocalMicrophoneConfig(device=1, silence_ms=900))
+    assert listener._endpoint_silence_ms(1.0) == 900
+    assert listener._endpoint_silence_ms(4.0) == 900
+    assert listener._endpoint_silence_ms(8.0) == 1200
+
+
+def test_adaptive_endpoint_can_be_disabled() -> None:
+    listener = _listener_for_endpoint(
+        LocalMicrophoneConfig(device=1, silence_ms=850, adaptive_listening=False)
+    )
+    assert listener._endpoint_silence_ms(20.0) == 850
